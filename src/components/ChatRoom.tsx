@@ -96,6 +96,22 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     setSnackbar({ open: true, message, severity });
   };
 
+  useEffect(() => {
+    if (!user) return;
+
+    const handleBeforeUnload = () => {
+      navigator.sendBeacon(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/users/logout/${user.id}`
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
