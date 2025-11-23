@@ -44,6 +44,51 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Add to your ChatRoom component state
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Update your useEffect for WebSocket
+  useEffect(() => {
+    // Load initial data
+    loadUsers();
+    loadMessageHistory();
+
+    // Setup WebSocket with connection monitoring
+    WebSocketService.connect(user.id, handleNewMessage, (error) => {
+      console.error("WebSocket error:", error);
+      showSnackbar("Connection error", "error");
+      setIsConnected(false);
+    });
+
+    // Add connection listeners
+    WebSocketService.onConnect(() => {
+      console.log("WebSocket connected successfully");
+      setIsConnected(true);
+      showSnackbar("Connected to chat", "success");
+    });
+
+    WebSocketService.onDisconnect(() => {
+      console.log("WebSocket disconnected");
+      setIsConnected(false);
+      showSnackbar("Disconnected from chat", "warning");
+    });
+
+    // Set up interval to refresh online users
+    const interval = setInterval(() => {
+      loadOnlineUsers();
+    }, 10000);
+
+    return () => {
+      WebSocketService.disconnect();
+      clearInterval(interval);
+    };
+  }, [user.id]);
+
+  // Add connection status to your UI
+  <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+    Chat App - {user.username} {isConnected ? "🟢" : "🔴"}
+  </Typography>;
+
   const showSnackbar = (
     message: string,
     severity: "info" | "error" | "warning" | "success" = "info"
@@ -145,15 +190,22 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
+    console.log("Received WebSocket message:", message);
+
     setMessages((prev) => {
+      // Handle message edits
       if (message.type === "MESSAGE_EDIT") {
+        console.log("Processing message edit:", message.id);
         return prev.map((m) =>
           m.id === message.id
             ? { ...m, content: message.content, lastEdited: message.lastEdited }
             : m
         );
       }
+
+      // Handle message deletions
       if (message.type === "MESSAGE_DELETE") {
+        console.log("Processing message deletion:", message.id);
         return prev.map((m) =>
           m.id === message.id
             ? { ...m, isDeleted: true, content: "This message was deleted" }
@@ -161,6 +213,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         );
       }
 
+      // Handle new messages
       const newMessage: Message = {
         id: message.id || Date.now(),
         content: message.content,
@@ -179,9 +232,46 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         isDeleted: message.isDeleted || false,
       };
 
-      // Append logic (private/public as you already have)
+      console.log("Adding new message to state:", newMessage);
+
+      // For private messages, only show if user is involved
+      if (newMessage.messageType === "PRIVATE") {
+        if (
+          newMessage.senderId === user.id ||
+          newMessage.receiverId === user.id
+        ) {
+          // Replace temporary message with real one if exists
+          const filteredPrev = prev.filter(
+            (m) =>
+              !(
+                m.content === newMessage.content &&
+                m.senderId === newMessage.senderId &&
+                m.receiverId === newMessage.receiverId &&
+                m.id !== newMessage.id
+              )
+          );
+          return [...filteredPrev, newMessage];
+        }
+        console.log("Ignoring private message not involving current user");
+        return prev; // Don't show private messages not involving current user
+      }
+
+      // For public messages, show to everyone
       return [...prev, newMessage];
     });
+
+    // Show notification if this is a private message received by current user
+    if (
+      message.type === "PRIVATE" &&
+      message.sender !== user.id.toString() &&
+      message.receiver === user.id.toString()
+    ) {
+      console.log(
+        "Showing notification for private message from:",
+        message.senderUsername
+      );
+      showSnackbar(`Private message from ${message.senderUsername}`, "info");
+    }
   };
 
   const handleSendMessage = (
@@ -195,18 +285,43 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     }
   };
 
-  const handleEditMessage = (messageId: number, newContent: string) => {
-    console.log("Attempting to edit message:", {
+  const handleEditMessage = async (messageId: number, newContent: string) => {
+    console.log("🔵 [EDIT] Attempting to edit message:", {
       messageId,
       newContent,
       userId: user.id,
+      currentTime: new Date().toISOString(),
     });
 
     // Find the message to edit
     const messageToEdit = messages.find((m) => m.id === messageId);
-    if (messageToEdit) {
-      console.log("Found message to edit:", messageToEdit);
+    if (!messageToEdit) {
+      console.error("❌ [EDIT] Message not found for editing:", messageId);
+      showSnackbar("Message not found", "error");
+      return;
+    }
 
+    console.log("📝 [EDIT] Found message to edit:", {
+      id: messageToEdit.id,
+      currentContent: messageToEdit.content,
+      sender: messageToEdit.senderId,
+      type: messageToEdit.messageType,
+    });
+
+    // Validate the new content
+    if (!newContent || newContent.trim().length === 0) {
+      console.error("❌ [EDIT] Empty content provided");
+      showSnackbar("Message content cannot be empty", "error");
+      return;
+    }
+
+    if (newContent.trim() === messageToEdit.content) {
+      console.log("ℹ️ [EDIT] Content unchanged, skipping edit");
+      showSnackbar("No changes made", "info");
+      return;
+    }
+
+    try {
       // Update locally immediately for better UX
       setMessages((prev) =>
         prev.map((msg) =>
@@ -220,14 +335,43 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         )
       );
 
-      // Send via WebSocket
-      WebSocketService.editMessage(messageId, user.id, newContent);
-      showSnackbar("Message edited successfully", "success");
+      console.log("🔄 [EDIT] Sending edit request via WebSocket service...");
 
-      return Promise.resolve();
-    } else {
-      console.error("Message not found for editing:", messageId);
-      showSnackbar("Message not found", "error");
+      // Send via WebSocket service (which uses REST API as fallback)
+      const success = await WebSocketService.editMessage(
+        messageId,
+        user.id,
+        newContent
+      );
+
+      if (success) {
+        console.log("✅ [EDIT] Message edited successfully");
+        showSnackbar("Message edited successfully", "success");
+      } else {
+        console.error("❌ [EDIT] WebSocket service returned failure");
+        // Revert local changes
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === messageId ? messageToEdit : msg))
+        );
+        showSnackbar("Failed to edit message", "error");
+      }
+    } catch (error: any) {
+      console.error("❌ [EDIT] Exception during edit:", {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+
+      // Revert local changes
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === messageId ? messageToEdit : msg))
+      );
+
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Failed to edit message";
+      showSnackbar(errorMessage, "error");
     }
   };
 

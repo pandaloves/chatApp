@@ -74,45 +74,52 @@ class WebSocketService {
   }
 
   private setupSubscriptions(userId: number): void {
-    if (!this.client) return;
+  if (!this.client) return;
 
-    // Subscribe to public messages
-    const publicSub = this.client.subscribe('/topic/public', (message: IMessage) => {
-      this.handleIncomingMessage(message);
-    });
-    this.subscriptions.set('public', publicSub);
-    
-    // Subscribe to private messages for this specific user
-    const privateSub = this.client.subscribe(`/user/${userId}/queue/private`, (message: IMessage) => {
-      this.handleIncomingMessage(message);
-    });
-    this.subscriptions.set('private', privateSub);
-    
-    // Subscribe to message updates (edits)
-    const updateSub = this.client.subscribe('/topic/updates', (message: IMessage) => {
-      this.handleIncomingMessage(message);
-    });
-    this.subscriptions.set('updates', updateSub);
-    
-    // Subscribe to message deletions
-    const deleteSub = this.client.subscribe('/topic/deletes', (message: IMessage) => {
-      this.handleIncomingMessage(message);
-    });
-    this.subscriptions.set('deletes', deleteSub);
-    
-    // Subscribe to errors
-    const errorSub = this.client.subscribe('/user/queue/errors', (message: IMessage) => {
-      try {
-        const error: WebSocketError = JSON.parse(message.body);
-        console.error('WebSocket application error:', error);
-        this.errorCallbacks.forEach(callback => callback(error));
-      } catch (parseError) {
-        console.error('Error parsing WebSocket error message:', parseError);
-      }
-    });
-    this.subscriptions.set('errors', errorSub);
-  }
+  console.log('Setting up WebSocket subscriptions for user:', userId);
 
+  // Subscribe to public messages
+  const publicSub = this.client.subscribe('/topic/public', (message: IMessage) => {
+    console.log('Received public message:', message.body);
+    this.handleIncomingMessage(message);
+  });
+  this.subscriptions.set('public', publicSub);
+  
+  // CORRECTED: Subscribe to private messages using the exact path Spring uses
+  const privateSub = this.client.subscribe(`/user/queue/private`, (message: IMessage) => {
+    console.log('Received private message via user queue:', message.body);
+    this.handleIncomingMessage(message);
+  });
+  this.subscriptions.set('private', privateSub);
+  
+  // Subscribe to message edits
+  const editSub = this.client.subscribe('/topic/edits', (message: IMessage) => {
+    console.log('Received message edit:', message.body);
+    this.handleIncomingMessage(message);
+  });
+  this.subscriptions.set('edits', editSub);
+  
+  // Subscribe to message deletions
+  const deleteSub = this.client.subscribe('/topic/deletes', (message: IMessage) => {
+    console.log('Received message deletion:', message.body);
+    this.handleIncomingMessage(message);
+  });
+  this.subscriptions.set('deletes', deleteSub);
+  
+  // Subscribe to errors
+  const errorSub = this.client.subscribe('/user/queue/errors', (message: IMessage) => {
+    try {
+      const error: WebSocketError = JSON.parse(message.body);
+      console.error('WebSocket application error:', error);
+      this.errorCallbacks.forEach(callback => callback(error));
+    } catch (parseError) {
+      console.error('Error parsing WebSocket error message:', parseError);
+    }
+  });
+  this.subscriptions.set('errors', errorSub);
+  
+  console.log('All WebSocket subscriptions setup completed');
+}
   private handleIncomingMessage(message: IMessage): void {
     try {
       const chatMessage: ChatMessageDTO = JSON.parse(message.body);
@@ -159,32 +166,73 @@ class WebSocketService {
   }
 
   async editMessage(messageId: number, userId: number, newContent: string): Promise<boolean> {
-    // Always try REST API first for persistence
-    try {
-      console.log('Editing message via REST API:', { messageId, userId, newContent });
-      const response = await messageAPI.editMessage(messageId, newContent, userId);
-      console.log('Edit successful via REST API:', response.data);
-      
-      // Then broadcast via WebSocket if connected
-      if (this.isConnected && this.client) {
-        const editPayload = { 
-          messageId, 
-          userId, 
-          content: newContent 
-        };
-        
-        this.client.publish({
-          destination: '/app/chat.edit',
-          body: JSON.stringify(editPayload)
-        });
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Failed to edit message:', error);
-      return false;
-    }
+  console.log('[WS-EDIT] Starting edit process:', { messageId, userId, newContent });
+  
+  // Validate inputs
+  if (!newContent || newContent.trim().length === 0) {
+    console.error('[WS-EDIT] Empty content provided');
+    return false;
   }
+
+  if (!messageId || !userId) {
+    console.error('[WS-EDIT] Missing messageId or userId');
+    return false;
+  }
+
+  try {
+    console.log('[WS-EDIT] Attempting REST API edit...');
+    
+    // Try REST API first for persistence
+    const response = await messageAPI.editMessage(messageId, newContent, userId);
+    
+    console.log('[WS-EDIT] REST API edit successful:', {
+      status: response.status,
+      data: response.data
+    });
+    
+    // Then broadcast via WebSocket if connected for real-time updates
+    if (this.isConnected && this.client) {
+      console.log('[WS-EDIT] Broadcasting edit via WebSocket...');
+      
+      const editPayload = { 
+        messageId, 
+        userId, 
+        content: newContent 
+      };
+      
+      this.client.publish({
+        destination: '/app/chat.edit',
+        body: JSON.stringify(editPayload)
+      });
+      
+      console.log('[WS-EDIT] WebSocket broadcast sent');
+    } else {
+      console.log('[WS-EDIT] WebSocket not connected, skipping broadcast');
+    }
+    
+    return true;
+    
+  } catch (error: any) {
+    console.error('[WS-EDIT] Edit failed:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url,
+      method: error.config?.method
+    });
+    
+    // Log specific error details
+    if (error.response?.status === 400) {
+      console.error('[WS-EDIT] 400 Bad Request - likely validation error:', error.response.data);
+    } else if (error.response?.status === 404) {
+      console.error('[WS-EDIT] 404 Not Found - message does not exist');
+    } else if (error.response?.status === 403) {
+      console.error('[WS-EDIT] 403 Forbidden - user not authorized to edit this message');
+    }
+    
+    return false;
+  }
+}
 
   async deleteMessage(messageId: number, userId: number): Promise<boolean> {
     // Always try REST API first for persistence

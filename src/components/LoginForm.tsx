@@ -1,15 +1,17 @@
-import { useState } from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import {
   Box,
+  Paper,
+  Typography,
   TextField,
   Button,
-  Typography,
-  Paper,
   Tabs,
   Tab,
-  Alert,
   CircularProgress,
 } from "@mui/material";
+import { useId } from "react";
 
 interface LoginFormProps {
   onLogin: (username: string, password: string) => Promise<void>;
@@ -17,121 +19,124 @@ interface LoginFormProps {
   loading?: boolean;
 }
 
-interface FormData {
-  username: string;
-  password: string;
-}
-
-const LoginForm: React.FC<LoginFormProps> = ({
+export default function LoginForm({
   onLogin,
   onRegister,
   loading = false,
-}) => {
-  const [activeTab, setActiveTab] = useState<number>(0);
-  const [formData, setFormData] = useState<FormData>({
-    username: "",
-    password: "",
-  });
-  const [error, setError] = useState<string>("");
+}: LoginFormProps) {
+  const [activeTab, setActiveTab] = useState(0);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isClient, setIsClient] = useState(false);
+
+  // Generate stable IDs
+  const usernameId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
+
+  // Ensure this only runs on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
-    try {
-      if (activeTab === 0) {
-        await onLogin(formData.username, formData.password);
-      } else {
-        await onRegister(formData.username, formData.password);
+    if (activeTab === 0) {
+      // Login
+      await onLogin(username, password);
+    } else {
+      // Register
+      if (password !== confirmPassword) {
+        alert("Passwords don't match");
+        return;
       }
-    } catch (err: any) {
-      setError(err.response?.data || err.message || "An error occurred");
+      await onRegister(username, password);
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-    setError("");
-  };
-
-  return (
-    <Box
-      sx={{
-        maxWidth: 400,
-        mx: "auto",
-        mt: 8,
-        padding: 2,
-      }}
-    >
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
+  // Don't render on server to avoid hydration mismatch
+  if (!isClient) {
+    return (
+      <Paper elevation={3} sx={{ p: 4, maxWidth: 400, mx: "auto", mt: 4 }}>
+        <Typography variant="h5" component="h1" align="center" gutterBottom>
           Chat App
         </Typography>
+        <Box sx={{ textAlign: "center" }}>
+          <CircularProgress />
+        </Box>
+      </Paper>
+    );
+  }
 
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          centered
-          sx={{ mb: 2 }}
-        >
-          <Tab label="Login" />
-          <Tab label="Register" />
-        </Tabs>
+  return (
+    <Paper elevation={3} sx={{ p: 4, maxWidth: 400, mx: "auto", mt: 4 }}>
+      <Typography variant="h5" component="h1" align="center" gutterBottom>
+        Chat App
+      </Typography>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+      <Tabs
+        value={activeTab}
+        onChange={(_, newValue) => setActiveTab(newValue)}
+        centered
+      >
+        <Tab label="Login" />
+        <Tab label="Register" />
+      </Tabs>
 
+      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        <TextField
+          fullWidth
+          label="Username"
+          variant="outlined"
+          margin="normal"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          id={usernameId}
+          disabled={loading}
+        />
+
+        <TextField
+          fullWidth
+          label="Password"
+          type="password"
+          variant="outlined"
+          margin="normal"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          id={passwordId}
+          disabled={loading}
+        />
+
+        {activeTab === 1 && (
           <TextField
             fullWidth
-            label="Username"
-            variant="outlined"
-            margin="normal"
-            value={formData.username}
-            onChange={(e) =>
-              setFormData({ ...formData, username: e.target.value })
-            }
-            required
-            disabled={loading}
-          />
-
-          <TextField
-            fullWidth
-            label="Password"
+            label="Confirm Password"
             type="password"
             variant="outlined"
             margin="normal"
-            value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             required
+            id={confirmPasswordId}
             disabled={loading}
           />
+        )}
 
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            sx={{ mt: 3 }}
-            disabled={loading}
-          >
-            {loading ? (
-              <CircularProgress size={24} />
-            ) : activeTab === 0 ? (
-              "Login"
-            ) : (
-              "Register"
-            )}
-          </Button>
-        </Box>
-      </Paper>
-    </Box>
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          sx={{ mt: 3, mb: 2 }}
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={20} /> : null}
+        >
+          {loading ? "Processing..." : activeTab === 0 ? "Login" : "Register"}
+        </Button>
+      </Box>
+    </Paper>
   );
-};
-
-export default LoginForm;
+}
