@@ -1,5 +1,3 @@
-
-
 import {
   List,
   ListItem,
@@ -8,10 +6,10 @@ import {
   Typography,
   Divider,
   Chip,
-  Box
-} from '@mui/material';
-import { Circle as CircleIcon } from '@mui/icons-material';
-import type { User } from '../types';
+  Box,
+} from "@mui/material";
+import { Circle as CircleIcon } from "@mui/icons-material";
+import type { User } from "../types";
 
 interface UserListProps {
   users: User[];
@@ -19,42 +17,46 @@ interface UserListProps {
   onSelectUser: (user: User) => void;
 }
 
-const UserList: React.FC<UserListProps> = ({ users, onlineUsers, onSelectUser }) => {
+const UserList: React.FC<UserListProps> = ({
+  users,
+  onlineUsers,
+  onSelectUser,
+}) => {
   const isUserOnline = (userId: number): boolean => {
-    return onlineUsers.some(user => user.id === userId);
+    return onlineUsers.some((user) => user.id === userId);
   };
 
   const formatDate = (dateString?: string): string => {
-    if (!dateString) return '';
+    if (!dateString) return "";
     return new Date(dateString).toLocaleDateString();
   };
 
   return (
-    <List sx={{ overflow: 'auto' }}>
+    <List sx={{ overflow: "auto" }}>
       <ListItem>
-        <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="h6" color="primary" sx={{ fontWeight: "bold" }}>
           Online Users ({onlineUsers.length})
         </Typography>
       </ListItem>
       <Divider />
-      
+
       {users.map((user) => (
         <ListItem key={user.id} disablePadding>
           <ListItemButton onClick={() => onSelectUser(user)}>
-            <ListItemText 
+            <ListItemText
               primary={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      fontWeight: isUserOnline(user.id) ? 'bold' : 'normal'
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      fontWeight: isUserOnline(user.id) ? "bold" : "normal",
                     }}
                   >
                     {user.username}
                   </Typography>
-                  
+
                   {isUserOnline(user.id) && (
-                    <Chip 
+                    <Chip
                       icon={<CircleIcon sx={{ fontSize: 8 }} />}
                       label="Online"
                       color="success"
@@ -62,12 +64,12 @@ const UserList: React.FC<UserListProps> = ({ users, onlineUsers, onSelectUser })
                       variant="outlined"
                     />
                   )}
-                  
+
                   {user.isDeleted && (
-                    <Chip 
-                      label="Deleted" 
-                      size="small" 
-                      color="default" 
+                    <Chip
+                      label="Deleted"
+                      size="small"
+                      color="default"
                       variant="outlined"
                     />
                   )}
@@ -84,7 +86,7 @@ const UserList: React.FC<UserListProps> = ({ users, onlineUsers, onSelectUser })
           </ListItemButton>
         </ListItem>
       ))}
-      
+
       {users.length === 0 && (
         <ListItem>
           <Typography variant="body2" color="text.secondary" align="center">

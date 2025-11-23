@@ -4,8 +4,8 @@ import {
   ChatMessageDTO,
   WebSocketError,
 } from '../types';
+import { messageAPI } from './api';
 
-// Define STOMP frame types if not provided by the library
 interface StompFrame {
   command: string;
   headers: StompHeaders;
@@ -45,7 +45,7 @@ class WebSocketService {
         this.isConnected = true;
         console.log('WebSocket connected:', frame);
         
-        this.setupSubscriptions();
+        this.setupSubscriptions(userId);
         this.connectCallbacks.forEach(callback => callback());
       },
       
@@ -73,7 +73,7 @@ class WebSocketService {
     this.client.activate();
   }
 
-  private setupSubscriptions(): void {
+  private setupSubscriptions(userId: number): void {
     if (!this.client) return;
 
     // Subscribe to public messages
@@ -82,11 +82,23 @@ class WebSocketService {
     });
     this.subscriptions.set('public', publicSub);
     
-    // Subscribe to private messages
-    const privateSub = this.client.subscribe('/user/queue/private', (message: IMessage) => {
+    // Subscribe to private messages for this specific user
+    const privateSub = this.client.subscribe(`/user/${userId}/queue/private`, (message: IMessage) => {
       this.handleIncomingMessage(message);
     });
     this.subscriptions.set('private', privateSub);
+    
+    // Subscribe to message updates (edits)
+    const updateSub = this.client.subscribe('/topic/updates', (message: IMessage) => {
+      this.handleIncomingMessage(message);
+    });
+    this.subscriptions.set('updates', updateSub);
+    
+    // Subscribe to message deletions
+    const deleteSub = this.client.subscribe('/topic/deletes', (message: IMessage) => {
+      this.handleIncomingMessage(message);
+    });
+    this.subscriptions.set('deletes', deleteSub);
     
     // Subscribe to errors
     const errorSub = this.client.subscribe('/user/queue/errors', (message: IMessage) => {
@@ -104,6 +116,7 @@ class WebSocketService {
   private handleIncomingMessage(message: IMessage): void {
     try {
       const chatMessage: ChatMessageDTO = JSON.parse(message.body);
+      console.log('Received WebSocket message:', chatMessage);
       this.messageCallbacks.forEach(callback => callback(chatMessage));
     } catch (error) {
       console.error('Error parsing WebSocket message:', error);
@@ -145,36 +158,58 @@ class WebSocketService {
     }
   }
 
-  editMessage(messageId: number, userId: number, newContent: string): void {
-    if (this.isConnected && this.client) {
-      const editPayload = {
-        messageId: messageId,
-        userId: userId,
-        content: newContent
-      };
+  async editMessage(messageId: number, userId: number, newContent: string): Promise<boolean> {
+    // Always try REST API first for persistence
+    try {
+      console.log('Editing message via REST API:', { messageId, userId, newContent });
+      const response = await messageAPI.editMessage(messageId, newContent, userId);
+      console.log('Edit successful via REST API:', response.data);
       
-      this.client.publish({
-        destination: '/app/chat.edit',
-        body: JSON.stringify(editPayload)
-      });
-    } else {
-      console.warn('WebSocket not connected');
+      // Then broadcast via WebSocket if connected
+      if (this.isConnected && this.client) {
+        const editPayload = { 
+          messageId, 
+          userId, 
+          content: newContent 
+        };
+        
+        this.client.publish({
+          destination: '/app/chat.edit',
+          body: JSON.stringify(editPayload)
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+      return false;
     }
   }
 
-  deleteMessage(messageId: number, userId: number): void {
-    if (this.isConnected && this.client) {
-      const deletePayload = {
-        messageId: messageId,
-        userId: userId
-      };
+  async deleteMessage(messageId: number, userId: number): Promise<boolean> {
+    // Always try REST API first for persistence
+    try {
+      console.log('Deleting message via REST API:', { messageId, userId });
+      await messageAPI.deleteMessage(messageId, userId);
+      console.log('Delete successful via REST API');
       
-      this.client.publish({
-        destination: '/app/chat.delete',
-        body: JSON.stringify(deletePayload)
-      });
-    } else {
-      console.warn('WebSocket not connected');
+      // Then broadcast via WebSocket if connected
+      if (this.isConnected && this.client) {
+        const deletePayload = {
+          messageId: messageId,
+          userId: userId
+        };
+        
+        this.client.publish({
+          destination: '/app/chat.delete',
+          body: JSON.stringify(deletePayload)
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      return false;
     }
   }
 

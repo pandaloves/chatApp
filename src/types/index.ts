@@ -30,16 +30,16 @@ export type UserResponse = {
 
 // Message related types
 export type Message = {
-  id: number;
+   id: number;
   content: string;
-  sender: User;
-  receiver?: User;
-  messageType: MessageType;
+  senderId: number;
+  senderUsername: string;
+  receiverId?: number | null;
+  receiverUsername?: string | null;
+  messageType: 'PUBLIC' | 'PRIVATE';
   timestamp: string;
-  isRead: boolean;
+  lastEdited?: string | null;
   isDeleted: boolean;
-  lastEdited?: string;
-  originalContent?: string;
 }
 
 export type MessageType = 'PUBLIC' | 'PRIVATE';
@@ -72,6 +72,7 @@ export type ChatMessageDTO = {
   receiverUsername?: string;
   type: string;
   timestamp?: string;
+  lastEdited?: string | null; // Add this
   isRead?: boolean;
   isDeleted?: boolean;
 }
@@ -123,6 +124,7 @@ export type MessageListProps = {
   currentUser: User;
   onEditMessage: (messageId: number, newContent: string) => void;
   onDeleteMessage: (messageId: number) => void;
+  showEditDeleteForPrivate?: boolean; // Add this
 }
 
 export type MessageInputProps = {
@@ -235,5 +237,3 @@ export type MessageSearchCriteria = {
   endDate?: string;
   content?: string;
 }
-
-
