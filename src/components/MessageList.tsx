@@ -31,9 +31,13 @@ const MessageList: React.FC<MessageListProps> = ({
   showEditDeleteForPrivate = false,
 }) => {
   const [menuAnchor, setMenuAnchor] = React.useState<null | HTMLElement>(null);
-  const [editingMessage, setEditingMessage] = React.useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = React.useState<Message | null>(
+    null
+  );
   const [editContent, setEditContent] = React.useState("");
-  const [selectedMessage, setSelectedMessage] = React.useState<Message | null>(null);
+  const [selectedMessage, setSelectedMessage] = React.useState<Message | null>(
+    null
+  );
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const handleMenuOpen = (
@@ -67,8 +71,8 @@ const MessageList: React.FC<MessageListProps> = ({
         await onDeleteMessage(selectedMessage.id);
         handleMenuClose();
       } catch (error) {
-        console.error('Error deleting message:', error);
-        alert('Failed to delete message. Please try again.');
+        console.error("Error deleting message:", error);
+        alert("Failed to delete message. Please try again.");
       } finally {
         setIsSubmitting(false);
       }
@@ -83,8 +87,8 @@ const MessageList: React.FC<MessageListProps> = ({
         setEditingMessage(null);
         setEditContent("");
       } catch (error) {
-        console.error('Error editing message:', error);
-        alert('Failed to edit message. Please try again.');
+        console.error("Error editing message:", error);
+        alert("Failed to edit message. Please try again.");
       } finally {
         setIsSubmitting(false);
       }
@@ -109,20 +113,28 @@ const MessageList: React.FC<MessageListProps> = ({
   const getSenderDisplayName = (message: Message): string => {
     // Use senderUsername if available, otherwise fallback
     if (message.senderUsername) {
-      return message.senderId === currentUser.id ? "You" : message.senderUsername;
+      return message.senderId === currentUser.id
+        ? "You"
+        : message.senderUsername;
     }
     // Fallback if username is missing
-    return message.senderId === currentUser.id ? "You" : `User ${message.senderId}`;
+    return message.senderId === currentUser.id
+      ? "You"
+      : `User ${message.senderId}`;
   };
 
   // Get display name for receiver
   const getReceiverDisplayName = (message: Message): string => {
     // Use receiverUsername if available, otherwise fallback
     if (message.receiverUsername) {
-      return message.receiverId === currentUser.id ? "You" : message.receiverUsername;
+      return message.receiverId === currentUser.id
+        ? "You"
+        : message.receiverUsername;
     }
     // Fallback if username is missing
-    return message.receiverId === currentUser.id ? "You" : `User ${message.receiverId}`;
+    return message.receiverId === currentUser.id
+      ? "You"
+      : `User ${message.receiverId}`;
   };
 
   const renderMessageHeader = (message: Message) => {
@@ -132,9 +144,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <Typography
             variant="subtitle2"
             color={
-              message.senderId === currentUser.id
-                ? "primary"
-                : "text.primary"
+              message.senderId === currentUser.id ? "primary" : "text.primary"
             }
             fontWeight="bold"
           >
@@ -177,25 +187,21 @@ const MessageList: React.FC<MessageListProps> = ({
             <Typography
               variant="subtitle2"
               color={
-                message.senderId === currentUser.id
-                  ? "primary"
-                  : "secondary"
+                message.senderId === currentUser.id ? "primary" : "secondary"
               }
               fontWeight="bold"
             >
               {getSenderDisplayName(message)}
             </Typography>
-            
+
             <Typography variant="caption" color="text.secondary">
               to
             </Typography>
-            
+
             <Typography
               variant="subtitle2"
               color={
-                message.receiverId === currentUser.id
-                  ? "primary"
-                  : "secondary"
+                message.receiverId === currentUser.id ? "primary" : "secondary"
               }
               fontWeight="bold"
             >
@@ -285,7 +291,10 @@ const MessageList: React.FC<MessageListProps> = ({
               borderRadius: 2,
               boxShadow: 1,
               border: message.messageType === "PRIVATE" ? "1px solid" : "none",
-              borderColor: message.messageType === "PRIVATE" ? "secondary.light" : "transparent",
+              borderColor:
+                message.messageType === "PRIVATE"
+                  ? "secondary.light"
+                  : "transparent",
             }}
           >
             <ListItemText
@@ -331,14 +340,17 @@ const MessageList: React.FC<MessageListProps> = ({
         fullWidth
       >
         <DialogTitle>
-          Edit {editingMessage?.messageType === "PRIVATE" ? "Private" : "Public"} Message
+          Edit{" "}
+          {editingMessage?.messageType === "PRIVATE" ? "Private" : "Public"}{" "}
+          Message
         </DialogTitle>
         <DialogContent>
-          {editingMessage?.messageType === "PRIVATE" && editingMessage.receiverUsername && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              To: {getReceiverDisplayName(editingMessage)}
-            </Typography>
-          )}
+          {editingMessage?.messageType === "PRIVATE" &&
+            editingMessage.receiverUsername && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                To: {getReceiverDisplayName(editingMessage)}
+              </Typography>
+            )}
           <TextField
             autoFocus
             margin="dense"
@@ -351,23 +363,30 @@ const MessageList: React.FC<MessageListProps> = ({
             rows={3}
             disabled={isSubmitting}
             onKeyPress={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isSubmitting) {
+              if (
+                e.key === "Enter" &&
+                (e.ctrlKey || e.metaKey) &&
+                !isSubmitting
+              ) {
                 handleEditSubmit();
               }
             }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditingMessage(null)} disabled={isSubmitting}>
+          <Button
+            onClick={() => setEditingMessage(null)}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={handleEditSubmit} 
+          <Button
+            onClick={handleEditSubmit}
             variant="contained"
             disabled={!editContent.trim() || isSubmitting}
             startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
           >
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
+            {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>

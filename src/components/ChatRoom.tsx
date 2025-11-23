@@ -102,10 +102,15 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const removeDuplicates = (messages: Message[]): Message[] => {
     const seen = new Set<string>();
     return messages
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      )
       .filter((msg) => {
         // Use a more comprehensive key to identify duplicates
-        const key = `${msg.senderId}-${msg.receiverId || "public"}-${msg.content}-${new Date(msg.timestamp).getTime()}`;
+        const key = `${msg.senderId}-${msg.receiverId || "public"}-${
+          msg.content
+        }-${new Date(msg.timestamp).getTime()}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -133,42 +138,51 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
 
   // Helper function to get username by ID
   const getUsernameById = (userId: number): string => {
-    const foundUser = users.find(u => u.id === userId) || onlineUsers.find(u => u.id === userId);
+    const foundUser =
+      users.find((u) => u.id === userId) ||
+      onlineUsers.find((u) => u.id === userId);
     return foundUser?.username || `User${userId}`;
   };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
-  setMessages(prev => {
-    if (message.type === 'MESSAGE_EDIT') {
-      return prev.map(m =>
-        m.id === message.id
-          ? { ...m, content: message.content, lastEdited: message.lastEdited }
-          : m
-      );
-    }
-    if (message.type === 'MESSAGE_DELETE') {
-      return prev.map(m =>
-        m.id === message.id ? { ...m, isDeleted: true, content: "This message was deleted" } : m
-      );
-    }
+    setMessages((prev) => {
+      if (message.type === "MESSAGE_EDIT") {
+        return prev.map((m) =>
+          m.id === message.id
+            ? { ...m, content: message.content, lastEdited: message.lastEdited }
+            : m
+        );
+      }
+      if (message.type === "MESSAGE_DELETE") {
+        return prev.map((m) =>
+          m.id === message.id
+            ? { ...m, isDeleted: true, content: "This message was deleted" }
+            : m
+        );
+      }
 
-    const newMessage: Message = {
-      id: message.id || Date.now(),
-      content: message.content,
-      senderId: parseInt(message.sender),
-      senderUsername: message.senderUsername || getUsernameById(parseInt(message.sender)),
-      receiverId: message.receiver ? parseInt(message.receiver) : null,
-      receiverUsername: message.receiverUsername || (message.receiver ? getUsernameById(parseInt(message.receiver)) : null),
-      messageType: message.type as 'PUBLIC' | 'PRIVATE',
-      timestamp: message.timestamp || new Date().toISOString(),
-      lastEdited: message.lastEdited || null,
-      isDeleted: message.isDeleted || false
-    };
+      const newMessage: Message = {
+        id: message.id || Date.now(),
+        content: message.content,
+        senderId: parseInt(message.sender),
+        senderUsername:
+          message.senderUsername || getUsernameById(parseInt(message.sender)),
+        receiverId: message.receiver ? parseInt(message.receiver) : null,
+        receiverUsername:
+          message.receiverUsername ||
+          (message.receiver
+            ? getUsernameById(parseInt(message.receiver))
+            : null),
+        messageType: message.type as "PUBLIC" | "PRIVATE",
+        timestamp: message.timestamp || new Date().toISOString(),
+        lastEdited: message.lastEdited || null,
+        isDeleted: message.isDeleted || false,
+      };
 
-    // Append logic (private/public as you already have)
-    return [...prev, newMessage];
-  });
-};
+      // Append logic (private/public as you already have)
+      return [...prev, newMessage];
+    });
+  };
 
   const handleSendMessage = (
     content: string,
@@ -181,43 +195,55 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     }
   };
 
-  const handleEditMessage = (messageId: number, newContent: string ) => {
-  console.log('Attempting to edit message:', { messageId, newContent, userId: user.id });
-  
-  // Find the message to edit
-  const messageToEdit = messages.find(m => m.id === messageId);
-  if (messageToEdit) {
-    console.log('Found message to edit:', messageToEdit);
-    
-    // Update locally immediately for better UX
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId 
-        ? { ...msg, content: newContent, lastEdited: new Date().toISOString() }
-        : msg
-    ));
-    
-    // Send via WebSocket
-    WebSocketService.editMessage(messageId, user.id, newContent);
-    showSnackbar("Message edited successfully", "success");
+  const handleEditMessage = (messageId: number, newContent: string) => {
+    console.log("Attempting to edit message:", {
+      messageId,
+      newContent,
+      userId: user.id,
+    });
 
-    return Promise.resolve();
-  } else {
-    console.error('Message not found for editing:', messageId);
-    showSnackbar("Message not found", "error");
-  }
-};
+    // Find the message to edit
+    const messageToEdit = messages.find((m) => m.id === messageId);
+    if (messageToEdit) {
+      console.log("Found message to edit:", messageToEdit);
+
+      // Update locally immediately for better UX
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? {
+                ...msg,
+                content: newContent,
+                lastEdited: new Date().toISOString(),
+              }
+            : msg
+        )
+      );
+
+      // Send via WebSocket
+      WebSocketService.editMessage(messageId, user.id, newContent);
+      showSnackbar("Message edited successfully", "success");
+
+      return Promise.resolve();
+    } else {
+      console.error("Message not found for editing:", messageId);
+      showSnackbar("Message not found", "error");
+    }
+  };
 
   const handleDeleteMessage = (messageId: number) => {
     // Find the message to delete
-    const messageToDelete = messages.find(m => m.id === messageId);
+    const messageToDelete = messages.find((m) => m.id === messageId);
     if (messageToDelete) {
       // Update locally immediately for better UX
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId 
-          ? { ...msg, isDeleted: true, content: "This message was deleted" }
-          : msg
-      ));
-      
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, isDeleted: true, content: "This message was deleted" }
+            : msg
+        )
+      );
+
       // Send via WebSocket
       WebSocketService.deleteMessage(messageId, user.id);
       showSnackbar("Message deleted successfully", "success");
@@ -263,21 +289,25 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         senderUsername: user.username,
         receiverId: selectedUser.id,
         receiverUsername: selectedUser.username,
-        messageType: 'PRIVATE',
+        messageType: "PRIVATE",
         timestamp: new Date().toISOString(),
         lastEdited: null,
-        isDeleted: false
+        isDeleted: false,
       };
 
       // Add to messages immediately
-      setMessages(prev => {
+      setMessages((prev) => {
         // Prevent duplicates
-        if (prev.find(m => 
-          m.id === tempMessage.id || 
-          (m.content === tempMessage.content && 
-           m.senderId === tempMessage.senderId && 
-           m.receiverId === tempMessage.receiverId)
-        )) return prev;
+        if (
+          prev.find(
+            (m) =>
+              m.id === tempMessage.id ||
+              (m.content === tempMessage.content &&
+                m.senderId === tempMessage.senderId &&
+                m.receiverId === tempMessage.receiverId)
+          )
+        )
+          return prev;
         return [...prev, tempMessage];
       });
 
@@ -285,7 +315,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       handleSendMessage(content, selectedUser.id);
       setPrivateMessageOpen(false);
       setSelectedUser(null);
-      
+
       // Scroll to show the new message
       setTimeout(scrollToBottom, 100);
     }
