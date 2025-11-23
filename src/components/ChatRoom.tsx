@@ -44,11 +44,15 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Add to your ChatRoom component state
   const [isConnected, setIsConnected] = useState(false);
 
-  // Update your useEffect for WebSocket
+  <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+    Chat App - {user.username} {isConnected ? "🟢" : "🔴"}
+  </Typography>;
+
   useEffect(() => {
+    if (!user) return;
+
     // Load initial data
     loadUsers();
     loadMessageHistory();
@@ -78,16 +82,21 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       loadOnlineUsers();
     }, 10000);
 
+    // Handle beforeunload for logout
+    const handleBeforeUnload = () => {
+      navigator.sendBeacon(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/users/logout/${user.id}`
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       WebSocketService.disconnect();
       clearInterval(interval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [user.id]);
-
-  // Add connection status to your UI
-  <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-    Chat App - {user.username} {isConnected ? "🟢" : "🔴"}
-  </Typography>;
+  }, [user?.id]); // Add user?.id dependency
 
   const showSnackbar = (
     message: string,
@@ -119,28 +128,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  useEffect(() => {
-    // Load initial data
-    loadUsers();
-    loadMessageHistory();
-
-    // Setup WebSocket
-    WebSocketService.connect(user.id, handleNewMessage, (error) => {
-      console.error("WebSocket error:", error);
-      showSnackbar("Connection error", "error");
-    });
-
-    // Set up interval to refresh online users
-    const interval = setInterval(() => {
-      loadOnlineUsers();
-    }, 10000);
-
-    return () => {
-      WebSocketService.disconnect();
-      clearInterval(interval);
-    };
-  }, [user.id]);
 
   const loadUsers = async () => {
     try {
@@ -209,27 +196,36 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     console.log("Received WebSocket message:", message);
 
     setMessages((prev) => {
-      // Handle message edits
+      const existingIds = new Set(prev.map((m) => m.id));
+
       if (message.type === "MESSAGE_EDIT") {
         console.log("Processing message edit:", message.id);
-        return prev.map((m) =>
-          m.id === message.id
-            ? { ...m, content: message.content, lastEdited: message.lastEdited }
-            : m
-        );
+        if (existingIds.has(message.id!)) {
+          return prev.map((m) =>
+            m.id === message.id
+              ? {
+                  ...m,
+                  content: message.content,
+                  lastEdited: message.lastEdited,
+                }
+              : m
+          );
+        }
+        return prev;
       }
 
-      // Handle message deletions
       if (message.type === "MESSAGE_DELETE") {
         console.log("Processing message deletion:", message.id);
-        return prev.map((m) =>
-          m.id === message.id
-            ? { ...m, isDeleted: true, content: "This message was deleted" }
-            : m
-        );
+        if (existingIds.has(message.id!)) {
+          return prev.map((m) =>
+            m.id === message.id
+              ? { ...m, isDeleted: true, content: "This message was deleted" }
+              : m
+          );
+        }
+        return prev;
       }
 
-      // Handle new messages
       const newMessage: Message = {
         id: message.id || Date.now(),
         content: message.content,
@@ -248,35 +244,36 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         isDeleted: message.isDeleted || false,
       };
 
-      console.log("Adding new message to state:", newMessage);
+      console.log(
+        "Checking if message already exists:",
+        newMessage.id,
+        existingIds.has(newMessage.id)
+      );
 
-      // For private messages, only show if user is involved
+      if (existingIds.has(newMessage.id)) {
+        console.log(
+          "Message already exists, skipping duplicate:",
+          newMessage.id
+        );
+        return prev;
+      }
+
       if (newMessage.messageType === "PRIVATE") {
         if (
           newMessage.senderId === user.id ||
           newMessage.receiverId === user.id
         ) {
-          // Replace temporary message with real one if exists
-          const filteredPrev = prev.filter(
-            (m) =>
-              !(
-                m.content === newMessage.content &&
-                m.senderId === newMessage.senderId &&
-                m.receiverId === newMessage.receiverId &&
-                m.id !== newMessage.id
-              )
-          );
-          return [...filteredPrev, newMessage];
+          console.log("Adding private message to state:", newMessage.id);
+          return [...prev, newMessage];
         }
         console.log("Ignoring private message not involving current user");
-        return prev; // Don't show private messages not involving current user
+        return prev;
       }
 
-      // For public messages, show to everyone
+      console.log("Adding public message to state:", newMessage.id);
       return [...prev, newMessage];
     });
 
-    // Show notification if this is a private message received by current user
     if (
       message.type === "PRIVATE" &&
       message.sender !== user.id.toString() &&
@@ -441,9 +438,8 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
 
   const handlePrivateMessageSend = (content: string) => {
     if (selectedUser) {
-      // Create temporary message for immediate UI update
       const tempMessage: Message = {
-        id: Date.now(), // Temporary ID
+        id: Number(`${Date.now()}${user.id}${selectedUser.id}`),
         content: content,
         senderId: user.id,
         senderUsername: user.username,
