@@ -193,98 +193,51 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
-    console.log("Received WebSocket message:", message);
-
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id));
 
+      // Handle edits
       if (message.type === "MESSAGE_EDIT") {
-        console.log("Processing message edit:", message.id);
-        if (existingIds.has(message.id!)) {
-          return prev.map((m) =>
-            m.id === message.id
-              ? {
-                  ...m,
-                  content: message.content,
-                  lastEdited: message.lastEdited,
-                }
-              : m
-          );
-        }
-        return prev;
+        return prev.map((m) =>
+          m.id === message.id
+            ? { ...m, content: message.content, lastEdited: message.lastEdited }
+            : m
+        );
       }
 
+      // Handle deletions
       if (message.type === "MESSAGE_DELETE") {
-        console.log("Processing message deletion:", message.id);
-        if (existingIds.has(message.id!)) {
-          return prev.map((m) =>
-            m.id === message.id
-              ? { ...m, isDeleted: true, content: "This message was deleted" }
-              : m
-          );
-        }
-        return prev;
+        return prev.map((m) =>
+          m.id === message.id
+            ? { ...m, isDeleted: true, content: "This message was deleted" }
+            : m
+        );
       }
 
+      // Construct new message object
       const newMessage: Message = {
         id: message.id || Date.now(),
         content: message.content,
         senderId: parseInt(message.sender),
-        senderUsername:
-          message.senderUsername || getUsernameById(parseInt(message.sender)),
+        senderUsername: message.senderUsername || `User${message.sender}`,
         receiverId: message.receiver ? parseInt(message.receiver) : null,
         receiverUsername:
           message.receiverUsername ||
-          (message.receiver
-            ? getUsernameById(parseInt(message.receiver))
-            : null),
+          (message.receiver ? `User${message.receiver}` : null),
         messageType: message.type as "PUBLIC" | "PRIVATE",
         timestamp: message.timestamp || new Date().toISOString(),
         lastEdited: message.lastEdited || null,
         isDeleted: message.isDeleted || false,
       };
 
-      console.log(
-        "Checking if message already exists:",
-        newMessage.id,
-        existingIds.has(newMessage.id)
+      // Avoid duplicates
+      if (existingIds.has(newMessage.id)) return prev;
+
+      return [...prev, newMessage].sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
-
-      if (existingIds.has(newMessage.id)) {
-        console.log(
-          "Message already exists, skipping duplicate:",
-          newMessage.id
-        );
-        return prev;
-      }
-
-      if (newMessage.messageType === "PRIVATE") {
-        if (
-          newMessage.senderId === user.id ||
-          newMessage.receiverId === user.id
-        ) {
-          console.log("Adding private message to state:", newMessage.id);
-          return [...prev, newMessage];
-        }
-        console.log("Ignoring private message not involving current user");
-        return prev;
-      }
-
-      console.log("Adding public message to state:", newMessage.id);
-      return [...prev, newMessage];
     });
-
-    if (
-      message.type === "PRIVATE" &&
-      message.sender !== user.id.toString() &&
-      message.receiver === user.id.toString()
-    ) {
-      console.log(
-        "Showing notification for private message from:",
-        message.senderUsername
-      );
-      showSnackbar(`Private message from ${message.senderUsername}`, "info");
-    }
   };
 
   const handleSendMessage = (
@@ -309,12 +262,12 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     // Find the message to edit
     const messageToEdit = messages.find((m) => m.id === messageId);
     if (!messageToEdit) {
-      console.error("❌ [EDIT] Message not found for editing:", messageId);
+      console.error(" [EDIT] Message not found for editing:", messageId);
       showSnackbar("Message not found", "error");
       return;
     }
 
-    console.log("📝 [EDIT] Found message to edit:", {
+    console.log(" [EDIT] Found message to edit:", {
       id: messageToEdit.id,
       currentContent: messageToEdit.content,
       sender: messageToEdit.senderId,
@@ -323,19 +276,18 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
 
     // Validate the new content
     if (!newContent || newContent.trim().length === 0) {
-      console.error("❌ [EDIT] Empty content provided");
+      console.error(" [EDIT] Empty content provided");
       showSnackbar("Message content cannot be empty", "error");
       return;
     }
 
     if (newContent.trim() === messageToEdit.content) {
-      console.log("ℹ️ [EDIT] Content unchanged, skipping edit");
+      console.log("ℹ [EDIT] Content unchanged, skipping edit");
       showSnackbar("No changes made", "info");
       return;
     }
 
     try {
-      // Update locally immediately for better UX
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === messageId
@@ -348,9 +300,8 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         )
       );
 
-      console.log("🔄 [EDIT] Sending edit request via WebSocket service...");
+      console.log("[EDIT] Sending edit request via WebSocket service...");
 
-      // Send via WebSocket service (which uses REST API as fallback)
       const success = await WebSocketService.editMessage(
         messageId,
         user.id,
@@ -358,10 +309,10 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       );
 
       if (success) {
-        console.log("✅ [EDIT] Message edited successfully");
+        console.log("[EDIT] Message edited successfully");
         showSnackbar("Message edited successfully", "success");
       } else {
-        console.error("❌ [EDIT] WebSocket service returned failure");
+        console.error("[EDIT] WebSocket service returned failure");
         // Revert local changes
         setMessages((prev) =>
           prev.map((msg) => (msg.id === messageId ? messageToEdit : msg))
@@ -369,7 +320,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         showSnackbar("Failed to edit message", "error");
       }
     } catch (error: any) {
-      console.error("❌ [EDIT] Exception during edit:", {
+      console.error("[EDIT] Exception during edit:", {
         error: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -392,7 +343,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     // Find the message to delete
     const messageToDelete = messages.find((m) => m.id === messageId);
     if (messageToDelete) {
-      // Update locally immediately for better UX
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === messageId
@@ -401,7 +351,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         )
       );
 
-      // Send via WebSocket
       WebSocketService.deleteMessage(messageId, user.id);
       showSnackbar("Message deleted successfully", "success");
     }
