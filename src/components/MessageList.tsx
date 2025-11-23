@@ -283,7 +283,7 @@ const MessageList: React.FC<MessageListProps> = ({
       >
         {messages.map((message) => (
           <ListItem
-            key={message.id}
+            key={message.id.toString()}
             alignItems="flex-start"
             sx={{
               mb: 1,
