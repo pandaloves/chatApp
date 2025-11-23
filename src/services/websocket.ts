@@ -73,62 +73,36 @@ class WebSocketService {
     this.client.activate();
   }
 
+  private handleIncomingMessage(message: IMessage) {
+  if (!message.body) return;
+
+  try {
+    const parsed: ChatMessageDTO = JSON.parse(message.body);
+    this.messageCallbacks.forEach(cb => cb(parsed));
+  } catch (err) {
+    console.error('Failed to parse incoming WS message:', err);
+  }
+}
+
   private setupSubscriptions(userId: number): void {
   if (!this.client) return;
 
-  console.log('Setting up WebSocket subscriptions for user:', userId);
-
-  // Subscribe to public messages
-  const publicSub = this.client.subscribe('/topic/public', (message: IMessage) => {
-    console.log('Received public message:', message.body);
-    this.handleIncomingMessage(message);
-  });
+  // Subscribe to all messages, edits, and deletions (all broadcast on /topic/public)
+  const publicSub = this.client.subscribe('/topic/public', this.handleIncomingMessage.bind(this));
   this.subscriptions.set('public', publicSub);
-  
-  // CORRECTED: Subscribe to private messages using the exact path Spring uses
-  const privateSub = this.client.subscribe(`/user/queue/private`, (message: IMessage) => {
-    console.log('Received private message via user queue:', message.body);
-    this.handleIncomingMessage(message);
-  });
-  this.subscriptions.set('private', privateSub);
-  
-  // Subscribe to message edits
-  const editSub = this.client.subscribe('/topic/edits', (message: IMessage) => {
-    console.log('Received message edit:', message.body);
-    this.handleIncomingMessage(message);
-  });
-  this.subscriptions.set('edits', editSub);
-  
-  // Subscribe to message deletions
-  const deleteSub = this.client.subscribe('/topic/deletes', (message: IMessage) => {
-    console.log('Received message deletion:', message.body);
-    this.handleIncomingMessage(message);
-  });
-  this.subscriptions.set('deletes', deleteSub);
-  
-  // Subscribe to errors
-  const errorSub = this.client.subscribe('/user/queue/errors', (message: IMessage) => {
+
+  // Errors
+  const errorSub = this.client.subscribe(`/user/${userId}/queue/errors`, (msg) => {
     try {
-      const error: WebSocketError = JSON.parse(message.body);
-      console.error('WebSocket application error:', error);
-      this.errorCallbacks.forEach(callback => callback(error));
-    } catch (parseError) {
-      console.error('Error parsing WebSocket error message:', parseError);
+      const error = JSON.parse(msg.body);
+      this.errorCallbacks.forEach((cb) => cb(error));
+    } catch (err) {
+      console.error('Failed to parse WS error:', err);
     }
   });
   this.subscriptions.set('errors', errorSub);
-  
-  console.log('All WebSocket subscriptions setup completed');
 }
-  private handleIncomingMessage(message: IMessage): void {
-    try {
-      const chatMessage: ChatMessageDTO = JSON.parse(message.body);
-      console.log('Received WebSocket message:', chatMessage);
-      this.messageCallbacks.forEach(callback => callback(chatMessage));
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
-    }
-  }
+
 
   sendPublicMessage(content: string, senderId: number): void {
     if (this.isConnected && this.client) {
