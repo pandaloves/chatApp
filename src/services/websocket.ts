@@ -73,36 +73,60 @@ class WebSocketService {
     this.client.activate();
   }
 
-  private handleIncomingMessage(message: IMessage) {
-  if (!message.body) return;
-
-  try {
-    const parsed: ChatMessageDTO = JSON.parse(message.body);
-    this.messageCallbacks.forEach(cb => cb(parsed));
-  } catch (err) {
-    console.error('Failed to parse incoming WS message:', err);
-  }
-}
-
   private setupSubscriptions(userId: number): void {
-  if (!this.client) return;
+    if (!this.client) return;
 
-  // Subscribe to all messages, edits, and deletions (all broadcast on /topic/public)
-  const publicSub = this.client.subscribe('/topic/public', this.handleIncomingMessage.bind(this));
-  this.subscriptions.set('public', publicSub);
+    console.log('🔌 Setting up WebSocket subscriptions for user:', userId);
 
-  // Errors
-  const errorSub = this.client.subscribe(`/user/${userId}/queue/errors`, (msg) => {
+    // Subscribe to public messages (public messages and public deletions)
+    const publicSub = this.client.subscribe('/topic/public', (message: IMessage) => {
+      console.log('📨 Received message from /topic/public:', message.body);
+      this.handleIncomingMessage(message);
+    });
+    this.subscriptions.set('public', publicSub);
+
+    // Subscribe to user-specific messages for private messages and private deletions
+    const userSub = this.client.subscribe(`/user/queue/messages`, (message: IMessage) => {
+      console.log('📨 Received message from /user/queue/messages:', message.body);
+      this.handleIncomingMessage(message);
+    });
+    this.subscriptions.set('user-messages', userSub);
+
+    // Subscribe to errors
+    const errorSub = this.client.subscribe(`/user/${userId}/queue/errors`, (message: IMessage) => {
+      try {
+        console.log('❌ Received error from WebSocket:', message.body);
+        const error = JSON.parse(message.body);
+        this.errorCallbacks.forEach((cb) => cb(error));
+      } catch (err) {
+        console.error('Failed to parse WS error:', err);
+      }
+    });
+    this.subscriptions.set('errors', errorSub);
+
+    console.log('✅ WebSocket subscriptions set up for user:', userId);
+    console.log('   - /topic/public (public messages & deletions)');
+    console.log('   - /user/queue/messages (private messages & deletions)');
+    console.log('   - /user/' + userId + '/queue/errors (errors)');
+  }
+
+  // Add the missing handleIncomingMessage method
+  private handleIncomingMessage(message: IMessage) {
+    if (!message.body) return;
+
     try {
-      const error = JSON.parse(msg.body);
-      this.errorCallbacks.forEach((cb) => cb(error));
+      const parsed: ChatMessageDTO = JSON.parse(message.body);
+      console.log('WebSocket message received:', {
+        type: parsed.type,
+        id: parsed.id,
+        content: parsed.content
+      });
+      
+      this.messageCallbacks.forEach(cb => cb(parsed));
     } catch (err) {
-      console.error('Failed to parse WS error:', err);
+      console.error('Failed to parse incoming WS message:', err, message.body);
     }
-  });
-  this.subscriptions.set('errors', errorSub);
-}
-
+  }
 
   sendPublicMessage(content: string, senderId: number): void {
     if (this.isConnected && this.client) {
@@ -140,83 +164,67 @@ class WebSocketService {
   }
 
   async editMessage(messageId: number, userId: number, newContent: string): Promise<boolean> {
-  console.log('[WS-EDIT] Starting edit process:', { messageId, userId, newContent });
-  
-  // Validate inputs
-  if (!newContent || newContent.trim().length === 0) {
-    console.error('[WS-EDIT] Empty content provided');
-    return false;
-  }
+    console.log('[WS-EDIT] Starting edit process:', { messageId, userId, newContent });
+    
+    if (!newContent || newContent.trim().length === 0) {
+      console.error('[WS-EDIT] Empty content provided');
+      return false;
+    }
 
-  if (!messageId || !userId) {
-    console.error('[WS-EDIT] Missing messageId or userId');
-    return false;
-  }
+    if (!messageId || !userId) {
+      console.error('[WS-EDIT] Missing messageId or userId');
+      return false;
+    }
 
-  try {
-    console.log('[WS-EDIT] Attempting REST API edit...');
-    
-    // Try REST API first for persistence
-    const response = await messageAPI.editMessage(messageId, newContent, userId);
-    
-    console.log('[WS-EDIT] REST API edit successful:', {
-      status: response.status,
-      data: response.data
-    });
-    
-    // Then broadcast via WebSocket if connected for real-time updates
-    if (this.isConnected && this.client) {
-      console.log('[WS-EDIT] Broadcasting edit via WebSocket...');
+    try {
+      console.log('[WS-EDIT] Attempting REST API edit...');
       
-      const editPayload = { 
-        messageId, 
-        userId, 
-        content: newContent 
-      };
+      const response = await messageAPI.editMessage(messageId, newContent, userId);
       
-      this.client.publish({
-        destination: '/app/chat.edit',
-        body: JSON.stringify(editPayload)
+      console.log('[WS-EDIT] REST API edit successful:', {
+        status: response.status,
+        data: response.data
       });
       
-      console.log('[WS-EDIT] WebSocket broadcast sent');
-    } else {
-      console.log('[WS-EDIT] WebSocket not connected, skipping broadcast');
+      // Broadcast via WebSocket for real-time updates
+      if (this.isConnected && this.client) {
+        console.log('[WS-EDIT] Broadcasting edit via WebSocket...');
+        
+        const editPayload = { 
+          messageId, 
+          userId, 
+          content: newContent 
+        };
+        
+        this.client.publish({
+          destination: '/app/chat.edit',
+          body: JSON.stringify(editPayload)
+        });
+        
+        console.log('[WS-EDIT] WebSocket broadcast sent');
+      }
+      
+      return true;
+      
+    } catch (error: any) {
+      console.error('[WS-EDIT] Edit failed:', error);
+      return false;
     }
-    
-    return true;
-    
-  } catch (error: any) {
-    console.error('[WS-EDIT] Edit failed:', {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-      url: error.config?.url,
-      method: error.config?.method
-    });
-    
-    // Log specific error details
-    if (error.response?.status === 400) {
-      console.error('[WS-EDIT] 400 Bad Request - likely validation error:', error.response.data);
-    } else if (error.response?.status === 404) {
-      console.error('[WS-EDIT] 404 Not Found - message does not exist');
-    } else if (error.response?.status === 403) {
-      console.error('[WS-EDIT] 403 Forbidden - user not authorized to edit this message');
-    }
-    
-    return false;
   }
-}
 
   async deleteMessage(messageId: number, userId: number): Promise<boolean> {
-    // Always try REST API first for persistence
+    console.log('[WS-DELETE] Starting delete process:', { messageId, userId });
+    
     try {
-      console.log('Deleting message via REST API:', { messageId, userId });
+      // First delete via REST API
+      console.log('[WS-DELETE] Deleting via REST API...');
       await messageAPI.deleteMessage(messageId, userId);
-      console.log('Delete successful via REST API');
+      console.log('[WS-DELETE] REST API delete successful');
       
-      // Then broadcast via WebSocket if connected
+      // Then broadcast deletion via WebSocket
       if (this.isConnected && this.client) {
+        console.log('[WS-DELETE] Broadcasting deletion via WebSocket...');
+        
         const deletePayload = {
           messageId: messageId,
           userId: userId
@@ -226,11 +234,13 @@ class WebSocketService {
           destination: '/app/chat.delete',
           body: JSON.stringify(deletePayload)
         });
+        
+        console.log('[WS-DELETE] WebSocket broadcast sent');
       }
       
       return true;
-    } catch (error) {
-      console.error('Failed to delete message:', error);
+    } catch (error: any) {
+      console.error('[WS-DELETE] Delete failed:', error);
       return false;
     }
   }

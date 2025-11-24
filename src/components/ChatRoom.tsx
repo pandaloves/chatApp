@@ -96,7 +96,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       clearInterval(interval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [user?.id]); // Add user?.id dependency
+  }, [user?.id]);
 
   const showSnackbar = (
     message: string,
@@ -193,50 +193,89 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
+    console.log(" New WebSocket message received:", {
+      type: message.type,
+      id: message.id,
+      content: message.content,
+      sender: message.sender,
+      receiver: message.receiver,
+    });
+
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id));
 
-      // Handle edits
+      // Handle message edits
       if (message.type === "MESSAGE_EDIT") {
-        return prev.map((m) =>
+        console.log(" Processing message edit for ID:", message.id);
+        const updated = prev.map((m) =>
           m.id === message.id
-            ? { ...m, content: message.content, lastEdited: message.lastEdited }
+            ? {
+                ...m,
+                content: message.content,
+                lastEdited: new Date().toISOString(),
+              }
             : m
         );
+        console.log(" Message edit processed");
+        return updated;
       }
 
-      // Handle deletions
+      // Handle message deletions
       if (message.type === "MESSAGE_DELETE") {
-        return prev.map((m) =>
+        console.log(" Processing message deletion for ID:", message.id);
+        const updated = prev.map((m) =>
           m.id === message.id
-            ? { ...m, isDeleted: true, content: "This message was deleted" }
+            ? {
+                ...m,
+                isDeleted: true,
+                content: "[This message was deleted]",
+              }
             : m
         );
+        console.log(" Message deletion processed");
+        return updated;
       }
 
-      // Construct new message object
-      const newMessage: Message = {
-        id: message.id || Date.now(),
-        content: message.content,
-        senderId: parseInt(message.sender),
-        senderUsername: message.senderUsername || `User${message.sender}`,
-        receiverId: message.receiver ? parseInt(message.receiver) : null,
-        receiverUsername:
-          message.receiverUsername ||
-          (message.receiver ? `User${message.receiver}` : null),
-        messageType: message.type as "PUBLIC" | "PRIVATE",
-        timestamp: message.timestamp || new Date().toISOString(),
-        lastEdited: message.lastEdited || null,
-        isDeleted: message.isDeleted || false,
-      };
+      // Handle new messages (PUBLIC or PRIVATE)
+      if (message.type === "PUBLIC" || message.type === "PRIVATE") {
+        // Check if message already exists to prevent duplicates
+        if (message.id && existingIds.has(message.id)) {
+          console.log("⏩ Skipping duplicate message:", message.id);
+          return prev;
+        }
 
-      // Avoid duplicates
-      if (existingIds.has(newMessage.id)) return prev;
+        const newMessage: Message = {
+          id: message.id || Date.now(),
+          content: message.content,
+          senderId: parseInt(message.sender),
+          senderUsername: message.senderUsername || `User${message.sender}`,
+          receiverId: message.receiver ? parseInt(message.receiver) : null,
+          receiverUsername: message.receiverUsername || null,
+          messageType: message.type as "PUBLIC" | "PRIVATE",
+          timestamp: message.timestamp || new Date().toISOString(),
+          lastEdited: message.lastEdited || null,
+          isDeleted: message.isDeleted || false,
+        };
 
-      return [...prev, newMessage].sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
+        console.log("➕ Adding new message:", {
+          id: newMessage.id,
+          type: newMessage.messageType,
+          content: newMessage.content,
+          sender: newMessage.senderId,
+          receiver: newMessage.receiverId,
+        });
+
+        const updated = [...prev, newMessage].sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+
+        console.log(" Total messages after addition:", updated.length);
+        return updated;
+      }
+
+      console.log(" Unknown message type:", message.type);
+      return prev;
     });
   };
 
@@ -252,7 +291,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   };
 
   const handleEditMessage = async (messageId: number, newContent: string) => {
-    console.log("🔵 [EDIT] Attempting to edit message:", {
+    console.log(" [EDIT] Attempting to edit message:", {
       messageId,
       newContent,
       userId: user.id,
