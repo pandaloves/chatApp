@@ -16,7 +16,6 @@ import {
 import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { Message, User } from "../types";
 
@@ -24,7 +23,6 @@ interface MessageListProps {
   messages: Message[];
   currentUser: User;
   onEditMessage: (messageId: number, newContent: string) => void;
-  onDeleteMessage: (messageId: number) => void;
   showEditDeleteForPrivate?: boolean;
 }
 
@@ -32,7 +30,6 @@ export default function MessageList({
   messages,
   currentUser,
   onEditMessage,
-  onDeleteMessage,
   showEditDeleteForPrivate = true,
 }: MessageListProps) {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -46,12 +43,6 @@ export default function MessageList({
     setEditingMessageId(message.id);
     setEditContent(message.content);
     setAnchorEl(null);
-  };
-
-  const handleDeleteClick = (message: Message) => {
-    onDeleteMessage(message.id);
-    setAnchorEl(null);
-    setSelectedMessage(null);
   };
 
   const handleEditSubmit = () => {
@@ -72,9 +63,6 @@ export default function MessageList({
   const canEditDeleteMessage = (message: Message): boolean => {
     // User can only edit/delete their own messages
     if (message.senderId !== currentUser.id) return false;
-
-    // Cannot edit/delete already deleted messages
-    if (message.isDeleted) return false;
 
     // Check if edit/delete is allowed for private messages
     if (message.messageType === "PRIVATE" && !showEditDeleteForPrivate) {
@@ -160,7 +148,7 @@ export default function MessageList({
                   ? "primary.contrastText"
                   : "text.primary",
               position: "relative",
-              opacity: message.isDeleted ? 0.7 : 1,
+              opacity: 1,
             }}
           >
             {editingMessageId === message.id ? (
@@ -191,13 +179,12 @@ export default function MessageList({
                 <Typography
                   variant="body2"
                   sx={{
-                    fontStyle: message.isDeleted ? "italic" : "normal",
-                    color: message.isDeleted ? "text.secondary" : "inherit",
+                    fontStyle: "normal",
+                    color: "inherit",
                   }}
                 >
                   {message.content}
                 </Typography>
-
                 {canEditDeleteMessage(message) && (
                   <IconButton
                     size="small"
@@ -235,13 +222,6 @@ export default function MessageList({
         >
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
           Edit
-        </MenuItem>
-        <MenuItem
-          onClick={() => selectedMessage && handleDeleteClick(selectedMessage)}
-          sx={{ color: "error.main" }}
-        >
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete
         </MenuItem>
       </Menu>
     </List>

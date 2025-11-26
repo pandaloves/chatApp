@@ -254,7 +254,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           messageType: message.type as "PUBLIC" | "PRIVATE",
           timestamp: message.timestamp || new Date().toISOString(),
           lastEdited: message.lastEdited || null,
-          isDeleted: message.isDeleted || false,
         };
 
         console.log("➕ Adding new message:", {
@@ -378,23 +377,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     }
   };
 
-  const handleDeleteMessage = (messageId: number) => {
-    // Find the message to delete
-    const messageToDelete = messages.find((m) => m.id === messageId);
-    if (messageToDelete) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId
-            ? { ...msg, isDeleted: true, content: "This message was deleted" }
-            : msg
-        )
-      );
-
-      WebSocketService.deleteMessage(messageId, user.id);
-      showSnackbar("Message deleted successfully", "success");
-    }
-  };
-
   const handleDeleteAccount = async () => {
     if (
       window.confirm(
@@ -436,7 +418,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         messageType: "PRIVATE",
         timestamp: new Date().toISOString(),
         lastEdited: null,
-        isDeleted: false,
       };
 
       // Add to messages immediately
@@ -532,8 +513,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
             messages={messages}
             currentUser={user}
             onEditMessage={handleEditMessage}
-            onDeleteMessage={handleDeleteMessage}
-            showEditDeleteForPrivate={true} // Enable edit/delete for private messages
           />
           <MessageInput onSendMessage={handleSendMessage} />
           <div ref={messagesEndRef} />

@@ -57,11 +57,7 @@ export const messageAPI = {
     api.put<Message>(`/messages/${messageId}`, { content }, { 
       headers: { 'X-User-Id': userId.toString() } 
     }),
-  
-  deleteMessage: (messageId: number, userId: number): Promise<AxiosResponse<void>> =>
-    api.delete(`/messages/${messageId}`, { 
-      headers: { 'X-User-Id': userId.toString() } 
-    }),
+
   
   markMessagesAsRead: (userId: number): Promise<AxiosResponse<void>> =>
     api.post(`/messages/read/${userId}`)

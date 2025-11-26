@@ -39,7 +39,6 @@ export type Message = {
   messageType: 'PUBLIC' | 'PRIVATE';
   timestamp: string;
   lastEdited?: string | null;
-  isDeleted: boolean;
 }
 
 export type MessageType = 'PUBLIC' | 'PRIVATE';
@@ -57,11 +56,6 @@ export type EditMessage ={
   userId: number;
 }
 
-export type DeleteMessage ={
-  messageId: number;
-  userId: number;
-}
-
 // WebSocket message types
 export type ChatMessageDTO = {
   id?: number;
@@ -74,11 +68,10 @@ export type ChatMessageDTO = {
   timestamp?: string;
   lastEdited?: string | null; // Add this
   isRead?: boolean;
-  isDeleted?: boolean;
 }
 
 export type WebSocketMessage ={
-  type: 'PUBLIC' | 'PRIVATE' | 'MESSAGE_EDIT' | 'MESSAGE_DELETE' | 'ERROR';
+  type: 'PUBLIC' | 'PRIVATE' | 'MESSAGE_EDIT' | 'ERROR';
   payload: ChatMessageDTO | any;
 }
 
@@ -123,8 +116,7 @@ export type MessageListProps = {
   messages: Message[];
   currentUser: User;
   onEditMessage: (messageId: number, newContent: string) => void;
-  onDeleteMessage: (messageId: number) => void;
-  showEditDeleteForPrivate?: boolean; // Add this
+  showEditDeleteForPrivate?: boolean; 
 }
 
 export type MessageInputProps = {
@@ -184,7 +176,7 @@ export type AuthState = {
 
 // Event types
 export type MessageEvent = {
-  type: 'NEW_MESSAGE' | 'MESSAGE_EDIT' | 'MESSAGE_DELETE';
+  type: 'NEW_MESSAGE' | 'MESSAGE_EDIT'
   message: Message;
 }
 
