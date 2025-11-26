@@ -212,39 +212,6 @@ class WebSocketService {
     }
   }
 
-  async deleteMessage(messageId: number, userId: number): Promise<boolean> {
-    console.log('[WS-DELETE] Starting delete process:', { messageId, userId });
-    
-    try {
-      // First delete via REST API
-      console.log('[WS-DELETE] Deleting via REST API...');
-      await messageAPI.deleteMessage(messageId, userId);
-      console.log('[WS-DELETE] REST API delete successful');
-      
-      // Then broadcast deletion via WebSocket
-      if (this.isConnected && this.client) {
-        console.log('[WS-DELETE] Broadcasting deletion via WebSocket...');
-        
-        const deletePayload = {
-          messageId: messageId,
-          userId: userId
-        };
-        
-        this.client.publish({
-          destination: '/app/chat.delete',
-          body: JSON.stringify(deletePayload)
-        });
-        
-        console.log('[WS-DELETE] WebSocket broadcast sent');
-      }
-      
-      return true;
-    } catch (error: any) {
-      console.error('[WS-DELETE] Delete failed:', error);
-      return false;
-    }
-  }
-
   // Event subscription methods
   onMessage(callback: (message: ChatMessageDTO) => void): void {
     this.messageCallbacks.push(callback);
