@@ -19,12 +19,14 @@ import {
 } from "@mui/icons-material";
 import { Message, User } from "../types";
 
-interface MessageListProps {
+/* ------------------------------------------------------------------------------ */
+
+type MessageListProps = {
   messages: Message[];
   currentUser: User;
   onEditMessage: (messageId: number, newContent: string) => void;
   showEditDeleteForPrivate?: boolean;
-}
+};
 
 export default function MessageList({
   messages,

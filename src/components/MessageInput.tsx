@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Box, TextField, IconButton, Fab, Tooltip } from "@mui/material";
 import { Send as SendIcon, Person as PersonIcon } from "@mui/icons-material";
 
-interface MessageInputProps {
+/* ------------------------------------------------------------------------------ */
+
+type MessageInputProps = {
   onSendMessage: (content: string, receiver?: number | null) => void;
   onPrivateMessageClick?: () => void;
-}
+};
 
 const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,

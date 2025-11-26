@@ -11,11 +11,13 @@ import {
 import { Circle as CircleIcon } from "@mui/icons-material";
 import type { User } from "../types";
 
-interface UserListProps {
+/* ------------------------------------------------------------------------------ */
+
+type UserListProps = {
   users: User[];
   onlineUsers: User[];
   onSelectUser: (user: User) => void;
-}
+};
 
 const UserList: React.FC<UserListProps> = ({
   users,

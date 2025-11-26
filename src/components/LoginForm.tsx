@@ -13,11 +13,13 @@ import {
 } from "@mui/material";
 import { useId } from "react";
 
-interface LoginFormProps {
+/* ------------------------------------------------------------------------------ */
+
+type LoginFormProps = {
   onLogin: (username: string, password: string) => Promise<void>;
   onRegister: (username: string, password: string) => Promise<void>;
   loading?: boolean;
-}
+};
 
 export default function LoginForm({
   onLogin,
