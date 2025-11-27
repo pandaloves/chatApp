@@ -17,15 +17,25 @@ type UserListProps = {
   users: User[];
   onlineUsers: User[];
   onSelectUser: (user: User) => void;
+  currentUserId?: number; // Add current user ID prop
 };
 
 const UserList: React.FC<UserListProps> = ({
   users,
   onlineUsers,
   onSelectUser,
+  currentUserId,
 }) => {
+  // Filter out current user from online users
+  const otherOnlineUsers = onlineUsers.filter(
+    (user) => user.id !== currentUserId
+  );
+
+  // Filter out current user from all users for display
+  const otherUsers = users.filter((user) => user.id !== currentUserId);
+
   const isUserOnline = (userId: number): boolean => {
-    return onlineUsers.some((user) => user.id === userId);
+    return otherOnlineUsers.some((user) => user.id === userId);
   };
 
   const formatDate = (dateString?: string): string => {
@@ -37,12 +47,12 @@ const UserList: React.FC<UserListProps> = ({
     <List sx={{ overflow: "auto" }}>
       <ListItem>
         <Typography variant="h6" color="primary" sx={{ fontWeight: "bold" }}>
-          Online Users ({onlineUsers.length})
+          Online Users ({otherOnlineUsers.length})
         </Typography>
       </ListItem>
       <Divider />
 
-      {users.map((user) => (
+      {otherUsers.map((user) => (
         <ListItem key={user.id} disablePadding>
           <ListItemButton onClick={() => onSelectUser(user)}>
             <ListItemText
@@ -52,6 +62,9 @@ const UserList: React.FC<UserListProps> = ({
                     variant="body1"
                     sx={{
                       fontWeight: isUserOnline(user.id) ? "bold" : "normal",
+                      color: isUserOnline(user.id)
+                        ? "success.main"
+                        : "text.primary",
                     }}
                   >
                     {user.username}
@@ -89,10 +102,10 @@ const UserList: React.FC<UserListProps> = ({
         </ListItem>
       ))}
 
-      {users.length === 0 && (
+      {otherUsers.length === 0 && (
         <ListItem>
           <Typography variant="body2" color="text.secondary" align="center">
-            No users found
+            No other users found
           </Typography>
         </ListItem>
       )}

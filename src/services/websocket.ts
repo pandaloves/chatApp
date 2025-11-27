@@ -6,13 +6,13 @@ import {
 } from '../types';
 import { messageAPI } from './api';
 
-interface StompFrame {
+type StompFrame = {
   command: string;
   headers: StompHeaders;
   body?: string;
 }
 
-interface WebSocketCloseEvent {
+type WebSocketCloseEvent = {
   code: number;
   reason: string;
   wasClean: boolean;
@@ -26,6 +26,7 @@ class WebSocketService {
   private errorCallbacks: ((error: WebSocketError) => void)[] = [];
   private connectCallbacks: (() => void)[] = [];
   private disconnectCallbacks: (() => void)[] = [];
+  private userCallbacks: ((event: any) => void)[] = []; 
 
   connect(
     userId: number, 
@@ -73,6 +74,20 @@ class WebSocketService {
     this.client.activate();
   }
 
+  onUserEvent(callback: (event: any) => void): void {
+    this.userCallbacks.push(callback);
+  }
+
+  private handleUserEvent(event: any) {
+    if (!event.type) return;
+    this.userCallbacks.forEach(cb => cb(event));
+  }
+
+  // Utility methods
+  getConnectionStatus(): boolean {
+    return this.isConnected;
+  }
+
   private setupSubscriptions(userId: number): void {
     if (!this.client) return;
 
@@ -92,6 +107,13 @@ class WebSocketService {
     });
     this.subscriptions.set('user-messages', userSub);
 
+    // Subscribe to user events
+    const userEventSub = this.client.subscribe('/topic/users', (message: IMessage) => {
+      console.log('User event received:', message.body);
+      this.handleUserEvent(JSON.parse(message.body));
+    });
+    this.subscriptions.set("user-events", userEventSub);
+
     // Subscribe to errors
     const errorSub = this.client.subscribe(`/user/${userId}/queue/errors`, (message: IMessage) => {
       try {
@@ -107,6 +129,7 @@ class WebSocketService {
     console.log('✅ WebSocket subscriptions set up for user:', userId);
     console.log('   - /topic/public (public messages & deletions)');
     console.log('   - /user/queue/messages (private messages & deletions)');
+    console.log('   - /topic/users (user events)');
     console.log('   - /user/' + userId + '/queue/errors (errors)');
   }
 
@@ -229,16 +252,12 @@ class WebSocketService {
     this.disconnectCallbacks.push(callback);
   }
 
-  // Utility methods
-  getConnectionStatus(): boolean {
-    return this.isConnected;
-  }
-
   disconnect(): void {
     this.messageCallbacks = [];
     this.errorCallbacks = [];
     this.connectCallbacks = [];
     this.disconnectCallbacks = [];
+    this.userCallbacks = []; // Clear user callbacks too
     
     this.subscriptions.forEach((subscription) => {
       subscription.unsubscribe();
