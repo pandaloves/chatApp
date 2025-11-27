@@ -30,7 +30,7 @@ export type UserResponse = {
 
 // Message related types
 export type Message = {
-   id: number;
+  id: number;
   content: string;
   senderId: number;
   senderUsername: string;

@@ -45,12 +45,48 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const [isConnected, setIsConnected] = useState(false);
 
-  <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-    Chat App - {user.username} {isConnected ? "🟢" : "🔴"}
-  </Typography>;
+  // Fixed: Added missing JSX element
+  const connectionStatus = (
+    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+      Chat App - {user.username} {isConnected ? "🟢" : "🔴"}
+    </Typography>
+  );
+
+  useEffect(() => {
+    WebSocketService.onUserEvent((event) => {
+      console.log("User event:", event);
+
+      switch (event.type) {
+        case "USER_UPDATE":
+          setUsers((prev) => [
+            ...prev.filter((u) => u.id !== event.payload.id),
+            event.payload,
+          ]);
+          break;
+
+        case "USER_ONLINE":
+          setOnlineUsers((prev) => [
+            ...prev.filter((u) => u.id !== event.payload.id),
+            event.payload,
+          ]);
+          break;
+
+        case "USER_OFFLINE":
+          setOnlineUsers((prev) =>
+            prev.filter((u) => u.id !== event.payload.id)
+          );
+          break;
+
+        case "USER_DELETE":
+          const userId = event.payload;
+          setUsers((prev) => prev.filter((u) => u.id !== userId));
+          setOnlineUsers((prev) => prev.filter((u) => u.id !== userId));
+          break;
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -143,9 +179,18 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const loadOnlineUsers = async () => {
     try {
       const response = await userAPI.getOnlineUsers();
-      setOnlineUsers(response.data);
+      const currentUserId = user?.id; // Fixed: use 'user' prop
+
+      if (currentUserId) {
+        const filteredOnlineUsers = response.data.filter(
+          (onlineUser) => onlineUser.id !== currentUserId
+        );
+        setOnlineUsers(filteredOnlineUsers);
+      } else {
+        setOnlineUsers(response.data);
+      }
     } catch (error) {
-      console.error("Error loading online users:", error);
+      console.error("Failed to load online users:", error);
     }
   };
 
@@ -157,7 +202,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       )
       .filter((msg) => {
-        // Use a more comprehensive key to identify duplicates
         const key = `${msg.senderId}-${msg.receiverId || "public"}-${
           msg.content
         }-${new Date(msg.timestamp).getTime()}`;
@@ -460,9 +504,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Chat App - {user.username}
-          </Typography>
+          {connectionStatus} {/* Use the connection status JSX */}
           <IconButton
             color="inherit"
             onClick={handleDeleteAccount}
@@ -494,6 +536,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           users={users}
           onlineUsers={onlineUsers}
           onSelectUser={handleUserSelect}
+          currentUserId={user.id} // Pass current user ID to filter in UserList
         />
       </Drawer>
 
