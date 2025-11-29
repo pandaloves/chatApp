@@ -170,7 +170,7 @@ const MessageList: React.FC<MessageListProps> = ({
                       <Chip
                         label="Edited"
                         size="small"
-                        color="default"
+                        color="primary"
                         variant="outlined"
                       />
                     )}

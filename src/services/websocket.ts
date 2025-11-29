@@ -27,17 +27,18 @@ class WebSocketService {
   private errorCallbacks: ((error: WebSocketError) => void)[] = [];
   private connectCallbacks: (() => void)[] = [];
   private disconnectCallbacks: (() => void)[] = [];
+  private userCallbacks: ((event: any) => void)[] = []; 
   private currentUsername: string = '';
 
   connect(
     userId: number, 
     onMessageReceived: (message: ChatMessageDTO) => void,
     onError: (error: WebSocketError) => void,
-    username: string // Add username parameter
+    username: string 
   ): void {
     this.messageCallbacks.push(onMessageReceived);
     this.errorCallbacks.push(onError);
-    this.currentUsername = username; // Store the current username
+    this.currentUsername = username; 
 
     this.client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
@@ -77,6 +78,12 @@ class WebSocketService {
     this.client.activate();
   }
 
+  private handleUserEvent(event: any): void {
+    if (!event.type) return;
+    console.log('Processing user event:', event);
+    this.userCallbacks.forEach(callback => callback(event));
+  }
+  
   private setupSubscriptions(): void {
     if (!this.client) return;
 
@@ -91,6 +98,20 @@ class WebSocketService {
       this.handleIncomingMessage(message);
     });
     this.subscriptions.set('private', privateSub);
+
+    // Subscribe to user-specific messages for private messages and private deletions
+    const userSub = this.client.subscribe(`/user/queue/messages`, (message: IMessage) => {
+      console.log('📨 Received message from /user/queue/messages:', message.body);
+      this.handleIncomingMessage(message);
+    });
+    this.subscriptions.set('user-messages', userSub);
+
+    // Subscribe to user events
+    const userEventSub = this.client.subscribe('/topic/users', (message: IMessage) => {
+      console.log('User event received:', message.body);
+      this.handleUserEvent(JSON.parse(message.body));
+    });
+    this.subscriptions.set("user-events", userEventSub);
     
     // Subscribe to errors
     const errorSub = this.client.subscribe('/user/queue/errors', (message: IMessage) => {
@@ -201,6 +222,7 @@ class WebSocketService {
     this.errorCallbacks = [];
     this.connectCallbacks = [];
     this.disconnectCallbacks = [];
+    this.userCallbacks = [];
     this.currentUsername = '';
     
     this.subscriptions.forEach((subscription) => {

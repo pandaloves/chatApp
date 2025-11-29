@@ -26,17 +26,10 @@ const UserList: React.FC<UserListProps> = ({
   onSelectUser,
   currentUserId,
 }) => {
-  // Filter out current user from online users
+  // Filter out current user AND only show online users
   const otherOnlineUsers = onlineUsers.filter(
-    (user) => user.id !== currentUserId
+    (user) => user.id !== currentUserId && !user.isDeleted
   );
-
-  // Filter out current user from all users for display
-  const otherUsers = users.filter((user) => user.id !== currentUserId);
-
-  const isUserOnline = (userId: number): boolean => {
-    return otherOnlineUsers.some((user) => user.id === userId);
-  };
 
   const formatDate = (dateString?: string): string => {
     if (!dateString) return "";
@@ -52,7 +45,7 @@ const UserList: React.FC<UserListProps> = ({
       </ListItem>
       <Divider />
 
-      {otherUsers.map((user) => (
+      {otherOnlineUsers.map((user) => (
         <ListItem key={user.id} disablePadding>
           <ListItemButton onClick={() => onSelectUser(user)}>
             <ListItemText
@@ -61,24 +54,20 @@ const UserList: React.FC<UserListProps> = ({
                   <Typography
                     variant="body1"
                     sx={{
-                      fontWeight: isUserOnline(user.id) ? "bold" : "normal",
-                      color: isUserOnline(user.id)
-                        ? "success.main"
-                        : "text.primary",
+                      fontWeight: "bold",
+                      color: "success.main",
                     }}
                   >
                     {user.username}
                   </Typography>
 
-                  {isUserOnline(user.id) && (
-                    <Chip
-                      icon={<CircleIcon sx={{ fontSize: 8 }} />}
-                      label="Online"
-                      color="success"
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
+                  <Chip
+                    icon={<CircleIcon sx={{ fontSize: 8 }} />}
+                    label="Online"
+                    color="success"
+                    size="small"
+                    variant="outlined"
+                  />
 
                   {user.isDeleted && (
                     <Chip
@@ -102,10 +91,10 @@ const UserList: React.FC<UserListProps> = ({
         </ListItem>
       ))}
 
-      {otherUsers.length === 0 && (
+      {otherOnlineUsers.length === 0 && (
         <ListItem>
           <Typography variant="body2" color="text.secondary" align="center">
-            No other users found
+            No other users online
           </Typography>
         </ListItem>
       )}
