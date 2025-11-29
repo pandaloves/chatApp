@@ -24,9 +24,10 @@ import { Message, User } from "../types";
 type MessageListProps = {
   messages: Message[];
   currentUser: User;
-  onEditMessage: (messageId: number, newContent: string) => void;
+  onEditMessage: (messageId: number , newContent: string) => void;
   showEditDeleteForPrivate?: boolean;
 };
+
 
 export default function MessageList({
   messages,
@@ -34,11 +35,12 @@ export default function MessageList({
   onEditMessage,
   showEditDeleteForPrivate = true,
 }: MessageListProps) {
-  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+const [editingMessageId, setEditingMessageId] = useState<string | number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const theme = useTheme();
+
 
   const handleEditClick = (message: Message) => {
     setSelectedMessage(message);

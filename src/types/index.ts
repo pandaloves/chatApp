@@ -66,7 +66,7 @@ export type ChatMessageDTO = {
   receiverUsername?: string;
   type: string;
   timestamp?: string;
-  lastEdited?: string | null; 
+  lastEdited?: string | null; // Add this
   isRead?: boolean;
 }
 

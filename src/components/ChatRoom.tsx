@@ -211,6 +211,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       });
   };
 
+
   const loadMessageHistory = async () => {
     try {
       const [publicResponse, userResponse] = await Promise.all([
@@ -230,13 +231,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     }
   };
 
-  // Helper function to get username by ID
-  const getUsernameById = (userId: number): string => {
-    const foundUser =
-      users.find((u) => u.id === userId) ||
-      onlineUsers.find((u) => u.id === userId);
-    return foundUser?.username || `User${userId}`;
-  };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
     console.log(" New WebSocket message received:", {
@@ -263,22 +257,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
             : m
         );
         console.log(" Message edit processed");
-        return updated;
-      }
-
-      // Handle message deletions
-      if (message.type === "MESSAGE_DELETE") {
-        console.log(" Processing message deletion for ID:", message.id);
-        const updated = prev.map((m) =>
-          m.id === message.id
-            ? {
-                ...m,
-                isDeleted: true,
-                content: "[This message was deleted]",
-              }
-            : m
-        );
-        console.log(" Message deletion processed");
         return updated;
       }
 

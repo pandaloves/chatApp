@@ -188,6 +188,7 @@ class WebSocketService {
     }
   }
 
+
   async editMessage(messageId: number, userId: number, newContent: string): Promise<boolean> {
     console.log('[WS-EDIT] Starting edit process:', { messageId, userId, newContent });
     
