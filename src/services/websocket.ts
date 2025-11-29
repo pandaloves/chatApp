@@ -6,6 +6,8 @@ import {
 } from '../types';
 import { messageAPI } from './api';
 
+/* ------------------------------------------------------------------------------ */
+
 type StompFrame = {
   command: string;
   headers: StompHeaders;
@@ -117,7 +119,7 @@ class WebSocketService {
     // Subscribe to errors
     const errorSub = this.client.subscribe(`/user/${userId}/queue/errors`, (message: IMessage) => {
       try {
-        console.log('❌ Received error from WebSocket:', message.body);
+        console.log('Received error from WebSocket:', message.body);
         const error = JSON.parse(message.body);
         this.errorCallbacks.forEach((cb) => cb(error));
       } catch (err) {
@@ -126,11 +128,11 @@ class WebSocketService {
     });
     this.subscriptions.set('errors', errorSub);
 
-    console.log('✅ WebSocket subscriptions set up for user:', userId);
-    console.log('   - /topic/public (public messages & deletions)');
-    console.log('   - /user/queue/messages (private messages & deletions)');
-    console.log('   - /topic/users (user events)');
-    console.log('   - /user/' + userId + '/queue/errors (errors)');
+    console.log('WebSocket subscriptions set up for user:', userId);
+    console.log('- /topic/public (public messages & deletions)');
+    console.log('- /user/queue/messages (private messages & deletions)');
+    console.log('- /topic/users (user events)');
+    console.log('- /user/' + userId + '/queue/errors (errors)');
   }
 
   // Add the missing handleIncomingMessage method
@@ -257,7 +259,7 @@ class WebSocketService {
     this.errorCallbacks = [];
     this.connectCallbacks = [];
     this.disconnectCallbacks = [];
-    this.userCallbacks = []; // Clear user callbacks too
+    this.userCallbacks = []; 
     
     this.subscriptions.forEach((subscription) => {
       subscription.unsubscribe();

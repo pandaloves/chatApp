@@ -10,6 +10,7 @@ import type { User } from "../types";
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Check if user is already logged in (from localStorage)
   useEffect(() => {
@@ -21,13 +22,19 @@ export default function HomePage() {
 
   const handleLogin = async (username: string, password: string) => {
     setLoading(true);
+    setError(null);
     try {
       const response = await userAPI.login(username, password);
       const userData = response.data;
       setUser(userData);
       localStorage.setItem("chatUser", JSON.stringify(userData));
     } catch (error: any) {
-      throw new Error(error.response?.data || "Login failed");
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Invalid username or password. Please try again.";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -35,13 +42,19 @@ export default function HomePage() {
 
   const handleRegister = async (username: string, password: string) => {
     setLoading(true);
+    setError(null);
     try {
       const response = await userAPI.register(username, password);
       const userData = response.data;
       setUser(userData);
       localStorage.setItem("chatUser", JSON.stringify(userData));
     } catch (error: any) {
-      throw new Error(error.response?.data || "Registration failed");
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Registration failed. The username might already exist.";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -59,6 +72,10 @@ export default function HomePage() {
     }
   };
 
+  const clearError = () => {
+    setError(null);
+  };
+
   if (user) {
     return <ChatRoom user={user} onLogout={handleLogout} />;
   }
@@ -69,6 +86,8 @@ export default function HomePage() {
         onLogin={handleLogin}
         onRegister={handleRegister}
         loading={loading}
+        error={error}
+        clearError={clearError}
       />
     </Container>
   );

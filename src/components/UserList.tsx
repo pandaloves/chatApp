@@ -17,7 +17,7 @@ type UserListProps = {
   users: User[];
   onlineUsers: User[];
   onSelectUser: (user: User) => void;
-  currentUserId?: number; // Add current user ID prop
+  currentUserId?: number;
 };
 
 const UserList: React.FC<UserListProps> = ({
