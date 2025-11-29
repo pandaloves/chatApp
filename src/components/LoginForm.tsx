@@ -1,10 +1,10 @@
 import { useState } from "react";
 import {
   Box,
+  Paper,
+  Typography,
   TextField,
   Button,
-  Typography,
-  Paper,
   Tabs,
   Tab,
   Alert,
@@ -13,16 +13,29 @@ import {
 
 /* -------------------------------------------------------- */
 
-interface LoginFormProps {
+/* ------------------------------------------------------------------------------ */
+
+type LoginFormProps = {
   onLogin: (username: string, password: string) => Promise<void>;
   onRegister: (username: string, password: string) => Promise<void>;
   loading?: boolean;
-}
+};
 
-interface FormData {
-  username: string;
-  password: string;
-}
+export default function LoginForm({
+  onLogin,
+  onRegister,
+  loading = false,
+}: LoginFormProps) {
+  const [activeTab, setActiveTab] = useState(0);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isClient, setIsClient] = useState(false);
+
+  // Generate stable IDs
+  const usernameId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
 
 const LoginForm: React.FC<LoginFormProps> = ({
   onLogin,
@@ -102,7 +115,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
           <TextField
             fullWidth
-            label="Password"
+            label="Confirm Password"
             type="password"
             variant="outlined"
             margin="normal"
@@ -111,6 +124,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
               setFormData({ ...formData, password: e.target.value })
             }
             required
+            id={confirmPasswordId}
             disabled={loading}
           />
 

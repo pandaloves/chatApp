@@ -58,11 +58,6 @@ export type EditMessage ={
   userId: number;
 }
 
-export type DeleteMessage ={
-  messageId: number;
-  userId: number;
-}
-
 // WebSocket message types
 export type ChatMessageDTO = {
   id?: number;
@@ -73,6 +68,7 @@ export type ChatMessageDTO = {
   receiverUsername?: string;
   type: string;
   timestamp?: string;
+  lastEdited?: string | null; // Add this
   isRead?: boolean;
 }
 
@@ -181,7 +177,7 @@ export type AuthState = {
 
 // Event types
 export type MessageEvent = {
-  type: 'NEW_MESSAGE' | 'MESSAGE_EDIT' | 'MESSAGE_DELETE';
+  type: 'NEW_MESSAGE' | 'MESSAGE_EDIT'
   message: Message;
 }
 
@@ -234,5 +230,3 @@ export type MessageSearchCriteria = {
   endDate?: string;
   content?: string;
 }
-
-
