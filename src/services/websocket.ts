@@ -101,7 +101,7 @@ class WebSocketService {
 
     // Subscribe to user-specific messages for private messages and private deletions
     const userSub = this.client.subscribe(`/user/queue/messages`, (message: IMessage) => {
-      console.log('📨 Received message from /user/queue/messages:', message.body);
+      console.log('Received message from /user/queue/messages:', message.body);
       this.handleIncomingMessage(message);
     });
     this.subscriptions.set('user-messages', userSub);
@@ -140,7 +140,7 @@ class WebSocketService {
       const message: ChatMessageDTO = {
         content: content,
         sender: senderId.toString(),
-        senderUsername: this.currentUsername, // Add senderUsername
+        senderUsername: this.currentUsername, 
         type: 'PUBLIC'
       };
       
@@ -158,7 +158,7 @@ class WebSocketService {
       const message: ChatMessageDTO = {
         content: content,
         sender: senderId.toString(),
-        senderUsername: this.currentUsername, // Add senderUsername
+        senderUsername: this.currentUsername, 
         receiver: receiverId.toString(),
         type: 'PRIVATE'
       };
@@ -178,7 +178,7 @@ class WebSocketService {
         messageId: messageId,
         userId: userId,
         content: newContent,
-        senderUsername: this.currentUsername // Add senderUsername to edit payload if needed
+        senderUsername: this.currentUsername 
       };
       
       this.client.publish({
@@ -190,7 +190,6 @@ class WebSocketService {
     }
   }
 
-  // Update username if needed (for cases where username might change)
   setUsername(username: string): void {
     this.currentUsername = username;
   }
