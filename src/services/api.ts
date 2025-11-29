@@ -2,6 +2,8 @@
 import axios, { AxiosResponse } from 'axios';
 import { User, Message, ApiResponse } from '../types';
 
+/* -------------------------------------------------------- */
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
 
 const api = axios.create({
@@ -58,10 +60,6 @@ export const messageAPI = {
       headers: { 'X-User-Id': userId.toString() } 
     }),
   
-  deleteMessage: (messageId: number, userId: number): Promise<AxiosResponse<void>> =>
-    api.delete(`/messages/${messageId}`, { 
-      headers: { 'X-User-Id': userId.toString() } 
-    }),
   
   markMessagesAsRead: (userId: number): Promise<AxiosResponse<void>> =>
     api.post(`/messages/read/${userId}`)

@@ -1,20 +1,21 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Container } from '@mui/material';
-import LoginForm from '../components/LoginForm';
-import ChatRoom from '../components/ChatRoom';
-import { userAPI } from '../services/api';
-import type { User } from '../types';
+import { useState, useEffect } from "react";
+import { Container } from "@mui/material";
+import LoginForm from "../components/LoginForm";
+import ChatRoom from "../components/ChatRoom";
+import { userAPI } from "../services/api";
+import type { User } from "../types";
 
+/* -------------------------------------------------------- */
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Check if user is already logged in (from localStorage)
   useEffect(() => {
-    const savedUser = localStorage.getItem('chatUser');
+    const savedUser = localStorage.getItem("chatUser");
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -22,13 +23,16 @@ export default function HomePage() {
 
   const handleLogin = async (username: string, password: string) => {
     setLoading(true);
+    setError(null);
     try {
       const response = await userAPI.login(username, password);
       const userData = response.data;
       setUser(userData);
-      localStorage.setItem('chatUser', JSON.stringify(userData));
+      localStorage.setItem("chatUser", JSON.stringify(userData));
     } catch (error: any) {
-      throw new Error(error.response?.data || 'Login failed');
+      const errorMessage = "Wrong username or password. Please try again.";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -36,13 +40,17 @@ export default function HomePage() {
 
   const handleRegister = async (username: string, password: string) => {
     setLoading(true);
+    setError(null);
     try {
       const response = await userAPI.register(username, password);
       const userData = response.data;
       setUser(userData);
-      localStorage.setItem('chatUser', JSON.stringify(userData));
+      localStorage.setItem("chatUser", JSON.stringify(userData));
     } catch (error: any) {
-      throw new Error(error.response?.data || 'Registration failed');
+      const errorMessage =
+        "Username already exists. Please choose a different one.";
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -53,11 +61,16 @@ export default function HomePage() {
       try {
         await userAPI.logout(user.id);
       } catch (error) {
-        console.error('Logout error:', error);
+        console.error("Logout error:", error);
       }
-      localStorage.removeItem('chatUser');
+      localStorage.removeItem("chatUser");
       setUser(null);
+      setError(null);
     }
+  };
+
+  const clearError = () => {
+    setError(null);
   };
 
   if (user) {
@@ -65,10 +78,10 @@ export default function HomePage() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ height: '100vh', p: 0 }}>
-      <LoginForm 
-        onLogin={handleLogin} 
-        onRegister={handleRegister} 
+    <Container maxWidth="xl" sx={{ height: "100vh", p: 0 }}>
+      <LoginForm
+        onLogin={handleLogin}
+        onRegister={handleRegister}
         loading={loading}
       />
     </Container>

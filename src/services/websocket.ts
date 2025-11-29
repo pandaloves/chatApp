@@ -5,14 +5,15 @@ import {
   WebSocketError,
 } from '../types';
 
-// Define STOMP frame types if not provided by the library
-interface StompFrame {
+/* -------------------------------------------------------- */
+
+type StompFrame = {
   command: string;
   headers: StompHeaders;
   body?: string;
 }
 
-interface WebSocketCloseEvent {
+type WebSocketCloseEvent = {
   code: number;
   reason: string;
   wasClean: boolean;
@@ -26,14 +27,17 @@ class WebSocketService {
   private errorCallbacks: ((error: WebSocketError) => void)[] = [];
   private connectCallbacks: (() => void)[] = [];
   private disconnectCallbacks: (() => void)[] = [];
+  private currentUsername: string = '';
 
   connect(
     userId: number, 
     onMessageReceived: (message: ChatMessageDTO) => void,
-    onError: (error: WebSocketError) => void
+    onError: (error: WebSocketError) => void,
+    username: string // Add username parameter
   ): void {
     this.messageCallbacks.push(onMessageReceived);
     this.errorCallbacks.push(onError);
+    this.currentUsername = username; // Store the current username
 
     this.client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
@@ -115,6 +119,7 @@ class WebSocketService {
       const message: ChatMessageDTO = {
         content: content,
         sender: senderId.toString(),
+        senderUsername: this.currentUsername, // Add senderUsername
         type: 'PUBLIC'
       };
       
@@ -132,6 +137,7 @@ class WebSocketService {
       const message: ChatMessageDTO = {
         content: content,
         sender: senderId.toString(),
+        senderUsername: this.currentUsername, // Add senderUsername
         receiver: receiverId.toString(),
         type: 'PRIVATE'
       };
@@ -150,7 +156,8 @@ class WebSocketService {
       const editPayload = {
         messageId: messageId,
         userId: userId,
-        content: newContent
+        content: newContent,
+        senderUsername: this.currentUsername // Add senderUsername to edit payload if needed
       };
       
       this.client.publish({
@@ -162,20 +169,9 @@ class WebSocketService {
     }
   }
 
-  deleteMessage(messageId: number, userId: number): void {
-    if (this.isConnected && this.client) {
-      const deletePayload = {
-        messageId: messageId,
-        userId: userId
-      };
-      
-      this.client.publish({
-        destination: '/app/chat.delete',
-        body: JSON.stringify(deletePayload)
-      });
-    } else {
-      console.warn('WebSocket not connected');
-    }
+  // Update username if needed (for cases where username might change)
+  setUsername(username: string): void {
+    this.currentUsername = username;
   }
 
   // Event subscription methods
@@ -205,6 +201,7 @@ class WebSocketService {
     this.errorCallbacks = [];
     this.connectCallbacks = [];
     this.disconnectCallbacks = [];
+    this.currentUsername = '';
     
     this.subscriptions.forEach((subscription) => {
       subscription.unsubscribe();

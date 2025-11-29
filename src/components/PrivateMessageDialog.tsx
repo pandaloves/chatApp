@@ -1,6 +1,4 @@
-
-
-import  { useState } from 'react';
+import { useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -9,43 +7,44 @@ import {
   TextField,
   Button,
   Typography,
-  Box
-} from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
-import type { User } from '../types';
+  Box,
+} from "@mui/material";
+import { Send as SendIcon } from "@mui/icons-material";
+import type { User } from "../types";
 
+/* -------------------------------------------------------- */
 
 type PrivateMessageDialogProps = {
   open: boolean;
   user: User | null;
   onClose: () => void;
   onSendMessage: (content: string) => void;
-}
+};
 
-const PrivateMessageDialog: React.FC<PrivateMessageDialogProps> = ({ 
-  open, 
-  user, 
-  onClose, 
-  onSendMessage 
+const PrivateMessageDialog: React.FC<PrivateMessageDialogProps> = ({
+  open,
+  user,
+  onClose,
+  onSendMessage,
 }) => {
-  const [message, setMessage] = useState<string>('');
+  const [message, setMessage] = useState<string>("");
 
   const handleSend = () => {
     if (message.trim() && user) {
       onSendMessage(message.trim());
-      setMessage('');
+      setMessage("");
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
   const handleClose = () => {
-    setMessage('');
+    setMessage("");
     onClose();
   };
 
@@ -59,7 +58,7 @@ const PrivateMessageDialog: React.FC<PrivateMessageDialogProps> = ({
           </Typography>
         )}
       </DialogTitle>
-      
+
       <DialogContent>
         <TextField
           autoFocus
@@ -72,15 +71,19 @@ const PrivateMessageDialog: React.FC<PrivateMessageDialogProps> = ({
           onKeyPress={handleKeyPress}
           multiline
           rows={3}
-          placeholder={user ? `Send a private message to ${user.username}...` : 'Select a user to send a private message'}
+          placeholder={
+            user
+              ? `Send a private message to ${user.username}...`
+              : "Select a user to send a private message"
+          }
         />
       </DialogContent>
-      
+
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button 
-          onClick={handleSend} 
-          variant="contained" 
+        <Button
+          onClick={handleSend}
+          variant="contained"
           disabled={!message.trim() || !user}
           startIcon={<SendIcon />}
         >

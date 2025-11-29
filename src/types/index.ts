@@ -32,12 +32,13 @@ export type UserResponse = {
 export type Message = {
   id: number;
   content: string;
-  sender: User;
+  sender ?: User;
+  senderId: number;
+  senderUsername: string; 
   receiver?: User;
   messageType: MessageType;
   timestamp: string;
   isRead: boolean;
-  isDeleted: boolean;
   lastEdited?: string;
   originalContent?: string;
 }
@@ -67,17 +68,16 @@ export type ChatMessageDTO = {
   id?: number;
   content: string;
   sender: string; 
-  senderUsername?: string;
+  senderUsername: string;
   receiver?: string;
   receiverUsername?: string;
   type: string;
   timestamp?: string;
   isRead?: boolean;
-  isDeleted?: boolean;
 }
 
 export type WebSocketMessage ={
-  type: 'PUBLIC' | 'PRIVATE' | 'MESSAGE_EDIT' | 'MESSAGE_DELETE' | 'ERROR';
+  type: 'PUBLIC' | 'PRIVATE' | 'MESSAGE_EDIT' |  'ERROR';
   payload: ChatMessageDTO | any;
 }
 
@@ -122,7 +122,6 @@ export type MessageListProps = {
   messages: Message[];
   currentUser: User;
   onEditMessage: (messageId: number, newContent: string) => void;
-  onDeleteMessage: (messageId: number) => void;
 }
 
 export type MessageInputProps = {

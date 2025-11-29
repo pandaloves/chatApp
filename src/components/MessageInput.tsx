@@ -1,54 +1,47 @@
-import  { useState } from 'react';
-import { 
-  Box, 
-  TextField, 
-  IconButton, 
-  Fab,
-  Tooltip
-} from '@mui/material';
-import { 
-  Send as SendIcon,
-  Person as PersonIcon
-} from '@mui/icons-material';
+import { useState } from "react";
+import { Box, TextField, IconButton, Fab, Tooltip } from "@mui/material";
+import { Send as SendIcon, Person as PersonIcon } from "@mui/icons-material";
 
-interface MessageInputProps {
+/* -------------------------------------------------------- */
+
+type MessageInputProps = {
   onSendMessage: (content: string, receiver?: number | null) => void;
   onPrivateMessageClick?: () => void;
-}
+};
 
-const MessageInput: React.FC<MessageInputProps> = ({ 
-  onSendMessage, 
-  onPrivateMessageClick 
+const MessageInput: React.FC<MessageInputProps> = ({
+  onSendMessage,
+  onPrivateMessageClick,
 }) => {
-  const [message, setMessage] = useState<string>('');
+  const [message, setMessage] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) {
       onSendMessage(message.trim());
-      setMessage('');
+      setMessage("");
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   };
 
   return (
-    <Box 
-      component="form" 
-      onSubmit={handleSubmit} 
-      sx={{ 
-        p: 2, 
-        borderTop: 1, 
-        borderColor: 'divider',
-        bgcolor: 'background.paper'
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{
+        p: 2,
+        borderTop: 1,
+        borderColor: "divider",
+        bgcolor: "background.paper",
       }}
     >
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+      <Box sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
         {onPrivateMessageClick && (
           <Tooltip title="Start private conversation">
             <Fab
@@ -61,7 +54,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             </Fab>
           </Tooltip>
         )}
-        
+
         <TextField
           fullWidth
           variant="outlined"
@@ -73,10 +66,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
           maxRows={4}
           size="small"
         />
-        
-        <IconButton 
-          type="submit" 
-          color="primary" 
+
+        <IconButton
+          type="submit"
+          color="primary"
           disabled={!message.trim()}
           sx={{ flexShrink: 0 }}
         >
