@@ -12,7 +12,7 @@ import {
 import { Send as SendIcon } from "@mui/icons-material";
 import type { User } from "../types";
 
-/* ------------------------------------------------------------------------------ */
+/* -------------------------------------------------------- */
 
 type PrivateMessageDialogProps = {
   open: boolean;

@@ -32,13 +32,15 @@ export type UserResponse = {
 export type Message = {
   id: number;
   content: string;
+  sender ?: User;
   senderId: number;
-  senderUsername: string;
-  receiverId?: number | null;
-  receiverUsername?: string | null;
-  messageType: 'PUBLIC' | 'PRIVATE';
+  senderUsername: string; 
+  receiver?: User;
+  messageType: MessageType;
   timestamp: string;
-  lastEdited?: string | null;
+  isRead: boolean;
+  lastEdited?: string;
+  originalContent?: string;
 }
 
 export type MessageType = 'PUBLIC' | 'PRIVATE';
@@ -61,7 +63,7 @@ export type ChatMessageDTO = {
   id?: number;
   content: string;
   sender: string; 
-  senderUsername?: string;
+  senderUsername: string;
   receiver?: string;
   receiverUsername?: string;
   type: string;
@@ -71,7 +73,7 @@ export type ChatMessageDTO = {
 }
 
 export type WebSocketMessage ={
-  type: 'PUBLIC' | 'PRIVATE' | 'MESSAGE_EDIT' | 'ERROR';
+  type: 'PUBLIC' | 'PRIVATE' | 'MESSAGE_EDIT' |  'ERROR';
   payload: ChatMessageDTO | any;
 }
 
@@ -116,7 +118,6 @@ export type MessageListProps = {
   messages: Message[];
   currentUser: User;
   onEditMessage: (messageId: number, newContent: string) => void;
-  showEditDeleteForPrivate?: boolean; 
 }
 
 export type MessageInputProps = {

@@ -7,6 +7,8 @@ import ChatRoom from "../../components/ChatRoom";
 import { userAPI } from "../../services/api";
 import type { User } from "../../types";
 
+/* -------------------------------------------------------- */
+
 export default function ChatPage() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();

@@ -1,6 +1,4 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import React from "react";
 import {
   List,
   ListItem,
@@ -10,37 +8,56 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
   useTheme,
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
 } from "@mui/icons-material";
-import { Message, User } from "../types";
+import { Message, User, MessageListProps } from "../types";
 
-/* ------------------------------------------------------------------------------ */
+/* -------------------------------------------------------- */
 
-type MessageListProps = {
-  messages: Message[];
-  currentUser: User;
-  onEditMessage: (messageId: number, newContent: string) => void;
-  showEditDeleteForPrivate?: boolean;
-};
-
-export default function MessageList({
+const MessageList: React.FC<MessageListProps> = ({
   messages,
   currentUser,
   onEditMessage,
-  showEditDeleteForPrivate = true,
-}: MessageListProps) {
-  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+}) => {
+  const [menuAnchor, setMenuAnchor] = React.useState<null | HTMLElement>(null);
+  const [editingMessage, setEditingMessage] = React.useState<Message | null>(
+    null
+  );
+  const [editContent, setEditContent] = React.useState("");
+  const [selectedMessage, setSelectedMessage] = React.useState<Message | null>(
+    null
+  );
   const theme = useTheme();
 
-  const handleEditClick = (message: Message) => {
+  // Remove duplicate messages based on ID
+  const uniqueMessages = React.useMemo(() => {
+    const seen = new Set();
+    return messages.filter((message) => {
+      if (seen.has(message.id)) {
+        console.warn("Duplicate message ID found and removed:", message.id);
+        return false;
+      }
+      seen.add(message.id);
+      return true;
+    });
+  }, [messages]);
+
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    message: Message
+  ) => {
+    setMenuAnchor(event.currentTarget);
     setSelectedMessage(message);
     setEditingMessageId(message.id);
     setEditContent(message.content);
@@ -56,159 +73,176 @@ export default function MessageList({
     }
   };
 
-  const handleEditCancel = () => {
-    setEditingMessageId(null);
-    setEditContent("");
-    setSelectedMessage(null);
-  };
-
-  const canEditDeleteMessage = (message: Message): boolean => {
-    // User can only edit/delete their own messages
-    if (message.senderId !== currentUser.id) return false;
-
-    // Check if edit/delete is allowed for private messages
-    if (message.messageType === "PRIVATE" && !showEditDeleteForPrivate) {
-      return false;
+  const handleEditSubmit = () => {
+    if (editingMessage && editContent.trim()) {
+      onEditMessage(editingMessage.id, editContent.trim());
+      setEditingMessage(null);
+      setEditContent("");
     }
 
-    return true;
+  // Safe sender username - always use the stored username
+  const getSafeSenderUsername = (message: Message): string => {
+    return message.senderUsername || message.sender?.username || "Unknown User";
   };
 
-  const formatTimestamp = (timestamp: string): string => {
+  // Safe comparison with fallback
+  const canModifyMessage = (message: Message): boolean => {
+    return message.senderId === currentUser.id;
+  };
+
+  const formatTime = (timestamp: string): string => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
 
+  // Filter out invalid messages
+  const validMessages = uniqueMessages.filter((message) => {
+    const isValid = message && message.id && message.content !== undefined;
+    if (!isValid) {
+      console.warn("Invalid message found:", message);
+    }
+    return isValid;
+  });
+
   return (
-    <List
-      sx={{
-        flexGrow: 1,
-        overflow: "auto",
-        p: 1,
-        bgcolor: "background.default",
-      }}
-    >
-      {messages.map((message) => (
-        <ListItem
-          key={message.id}
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems:
-              message.senderId === currentUser.id ? "flex-end" : "flex-start",
-            mb: 1,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
-            <Typography
-              variant="caption"
+    <>
+      <List
+        sx={{
+          flexGrow: 1,
+          overflow: "auto",
+          p: 2,
+          bgcolor: "background.default",
+        }}
+      >
+        {validMessages.map((message) => {
+          const senderUsername = getSafeSenderUsername(message);
+          const isCurrentUser = message.senderId === currentUser.id;
+
+          return (
+            <ListItem
+              key={message.id}
               sx={{
-                fontWeight: "bold",
-                color:
-                  message.senderId === currentUser.id
-                    ? theme.palette.primary.main
-                    : theme.palette.text.secondary,
+                mb: 1,
+                bgcolor: "background.paper",
+                borderRadius: 2,
+                boxShadow: 1,
+                alignItems: isCurrentUser ? "flex-end" : "flex-start",
+                justifyContent: isCurrentUser ? "flex-end" : "flex-start",
               }}
             >
-              {message.senderUsername}
-            </Typography>
-            {message.messageType === "PRIVATE" && (
-              <Chip
-                label="Private"
-                size="small"
-                color="secondary"
-                sx={{ ml: 1, height: 20 }}
-              />
-            )}
-            <Typography
-              variant="caption"
-              sx={{ ml: 1, color: "text.secondary" }}
-            >
-              {formatTimestamp(message.timestamp)}
-            </Typography>
-            {message.lastEdited && (
-              <Typography variant="caption" sx={{ ml: 1, fontStyle: "italic" }}>
-                (edited)
-              </Typography>
-            )}
-          </Box>
-
-          <Paper
-            elevation={1}
-            sx={{
-              p: 1.5,
-              maxWidth: "70%",
-              minWidth: "100px",
-              bgcolor:
-                message.senderId === currentUser.id
-                  ? "primary.light"
-                  : "grey.100",
-              color:
-                message.senderId === currentUser.id
-                  ? "primary.contrastText"
-                  : "text.primary",
-              position: "relative",
-              opacity: 1,
-            }}
-          >
-            {editingMessageId === message.id ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <input
-                  type="text"
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") handleEditSubmit();
-                    if (e.key === "Escape") handleEditCancel();
-                  }}
-                  style={{
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    padding: "8px",
-                    fontSize: "14px",
-                  }}
-                  autoFocus
-                />
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <button onClick={handleEditSubmit}>Save</button>
-                  <button onClick={handleEditCancel}>Cancel</button>
-                </Box>
-              </Box>
-            ) : (
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontStyle: "normal",
-                    color: "inherit",
-                  }}
-                >
-                  {message.content}
-                </Typography>
-                {canEditDeleteMessage(message) && (
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      setSelectedMessage(message);
-                      setAnchorEl(e.currentTarget);
+              <ListItemText
+                primary={
+                  <Box
+                    component="div"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 0.5,
                     }}
-                    sx={{ ml: 1 }}
                   >
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Box>
-            )}
-          </Paper>
+                    {!isCurrentUser && (
+                      <Typography
+                        variant="subtitle2"
+                        component="span"
+                        color="text.primary"
+                        fontWeight="bold"
+                      >
+                        {senderUsername}
+                      </Typography>
+                    )}
 
-          {message.receiverId && message.messageType === "PRIVATE" && (
-            <Typography
-              variant="caption"
-              sx={{ mt: 0.5, color: "text.secondary" }}
-            >
-              To: {message.receiverUsername}
+                    {message.messageType === "PRIVATE" && (
+                      <Chip
+                        label="Private"
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                      />
+                    )}
+
+                    {message.lastEdited && (
+                      <Chip
+                        label="Edited"
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    )}
+
+                    <Typography
+                      variant="caption"
+                      component="span"
+                      color="text.secondary"
+                      sx={{ ml: "auto" }}
+                    >
+                      {formatTime(message.timestamp)}
+                    </Typography>
+
+                    {isCurrentUser && (
+                      <Typography
+                        variant="subtitle2"
+                        component="span"
+                        color="primary"
+                        fontWeight="bold"
+                      >
+                        {senderUsername}
+                      </Typography>
+                    )}
+
+                    {canModifyMessage(message) && (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, message)}
+                      >
+                        <MoreIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+                }
+                secondaryTypographyProps={{ component: "div" }}
+                secondary={
+                  <Box
+                    component="div"
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: isCurrentUser ? "flex-end" : "flex-start",
+                    }}
+                  >
+                    <Typography
+                      variant="body1"
+                      component="div"
+                      sx={{
+                        mt: 0.5,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: isCurrentUser ? "primary.light" : "grey.100",
+                        color: isCurrentUser
+                          ? "primary.contrastText"
+                          : "text.primary",
+                        maxWidth: "70%",
+                        fontStyle: "normal",
+                      }}
+                    >
+                      {message.content}
+                    </Typography>
+                  </Box>
+                }
+              />
+            </ListItem>
+          );
+        })}
+
+        {validMessages.length === 0 && (
+          <Box sx={{ textAlign: "center", mt: 4 }}>
+            <Typography variant="h6" color="text.secondary">
+              No messages yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Start a conversation by sending a message!
             </Typography>
           )}
         </ListItem>
@@ -226,6 +260,35 @@ export default function MessageList({
           Edit
         </MenuItem>
       </Menu>
-    </List>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={Boolean(editingMessage)}
+        onClose={() => setEditingMessage(null)}
+      >
+        <DialogTitle>Edit Message</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Message"
+            fullWidth
+            variant="outlined"
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            multiline
+            rows={3}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingMessage(null)}>Cancel</Button>
+          <Button onClick={handleEditSubmit} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
-}
+};
+
+export default MessageList;
