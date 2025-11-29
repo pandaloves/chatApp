@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Box,
   Paper,
@@ -9,9 +7,11 @@ import {
   Button,
   Tabs,
   Tab,
+  Alert,
   CircularProgress,
 } from "@mui/material";
-import { useId } from "react";
+
+/* -------------------------------------------------------- */
 
 /* ------------------------------------------------------------------------------ */
 
@@ -37,108 +37,117 @@ export default function LoginForm({
   const passwordId = useId();
   const confirmPasswordId = useId();
 
-  // Ensure this only runs on client
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+const LoginForm: React.FC<LoginFormProps> = ({
+  onLogin,
+  onRegister,
+  loading = false,
+}) => {
+  const [activeTab, setActiveTab] = useState<number>(0);
+  const [formData, setFormData] = useState<FormData>({
+    username: "",
+    password: "",
+  });
+  const [error, setError] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
-    if (activeTab === 0) {
-      // Login
-      await onLogin(username, password);
-    } else {
-      // Register
-      if (password !== confirmPassword) {
-        alert("Passwords don't match");
-        return;
+    try {
+      if (activeTab === 0) {
+        await onLogin(formData.username, formData.password);
+      } else {
+        await onRegister(formData.username, formData.password);
       }
-      await onRegister(username, password);
+    } catch (err: any) {
+      setError(err.response?.data || err.message || "An error occurred");
     }
   };
 
-  // Don't render on server to avoid hydration mismatch
-  if (!isClient) {
-    return (
-      <Paper elevation={3} sx={{ p: 4, maxWidth: 400, mx: "auto", mt: 4 }}>
-        <Typography variant="h5" component="h1" align="center" gutterBottom>
-          Chat App
-        </Typography>
-        <Box sx={{ textAlign: "center" }}>
-          <CircularProgress />
-        </Box>
-      </Paper>
-    );
-  }
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+    setError("");
+  };
 
   return (
-    <Paper elevation={3} sx={{ p: 4, maxWidth: 400, mx: "auto", mt: 4 }}>
-      <Typography variant="h5" component="h1" align="center" gutterBottom>
-        Chat App
-      </Typography>
+    <Box
+      sx={{
+        maxWidth: 400,
+        mx: "auto",
+        mt: 8,
+        padding: 2,
+      }}
+    >
+      <Paper elevation={3} sx={{ p: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Chat App
+        </Typography>
 
-      <Tabs
-        value={activeTab}
-        onChange={(_, newValue) => setActiveTab(newValue)}
-        centered
-      >
-        <Tab label="Login" />
-        <Tab label="Register" />
-      </Tabs>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          centered
+          sx={{ mb: 2 }}
+        >
+          <Tab label="Login" />
+          <Tab label="Register" />
+        </Tabs>
 
-      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-        <TextField
-          fullWidth
-          label="Username"
-          variant="outlined"
-          margin="normal"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-          id={usernameId}
-          disabled={loading}
-        />
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
 
-        <TextField
-          fullWidth
-          label="Password"
-          type="password"
-          variant="outlined"
-          margin="normal"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          id={passwordId}
-          disabled={loading}
-        />
+          <TextField
+            fullWidth
+            label="Username"
+            variant="outlined"
+            margin="normal"
+            value={formData.username}
+            onChange={(e) =>
+              setFormData({ ...formData, username: e.target.value })
+            }
+            required
+            disabled={loading}
+          />
 
-        {activeTab === 1 && (
           <TextField
             fullWidth
             label="Confirm Password"
             type="password"
             variant="outlined"
             margin="normal"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            value={formData.password}
+            onChange={(e) =>
+              setFormData({ ...formData, password: e.target.value })
+            }
             required
             id={confirmPasswordId}
             disabled={loading}
           />
-        )}
 
-        <Button
-          type="submit"
-          fullWidth
-          variant="contained"
-          sx={{ mt: 3, mb: 2 }}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          {loading ? "Processing..." : activeTab === 0 ? "Login" : "Register"}
-        </Button>
-      </Box>
-    </Paper>
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            size="large"
+            sx={{ mt: 3 }}
+            disabled={loading}
+          >
+            {loading ? (
+              <CircularProgress size={24} />
+            ) : activeTab === 0 ? (
+              "Login"
+            ) : (
+              "Register"
+            )}
+          </Button>
+        </Box>
+      </Paper>
+    </Box>
   );
-}
+};
+
+export default LoginForm;

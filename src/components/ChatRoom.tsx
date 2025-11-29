@@ -28,7 +28,7 @@ import WebSocketService from "../services/websocket";
 import { userAPI, messageAPI } from "../services/api";
 import { User, Message, ChatMessageDTO, ChatRoomProps } from "../types";
 
-/* ------------------------------------------------------------------------------ */
+/* -------------------------------------------------------- */
 
 export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,12 +47,16 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  // Fixed: Added missing JSX element
-  const connectionStatus = (
-    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-      Chat App - {user.username} {isConnected ? "🟢" : "🔴"}
-    </Typography>
-  );
+  const showSnackbar = (
+    message: string,
+    severity: "info" | "error" | "warning" | "success" = "info"
+  ) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     WebSocketService.onUserEvent((event) => {
@@ -89,33 +93,19 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-
-    // Load initial data
     loadUsers();
     loadMessageHistory();
 
-    // Setup WebSocket with connection monitoring
-    WebSocketService.connect(user.id, handleNewMessage, (error) => {
-      console.error("WebSocket error:", error);
-      showSnackbar("Connection error", "error");
-      setIsConnected(false);
-    });
+    WebSocketService.connect(
+      user.id,
+      handleNewMessage,
+      (error) => {
+        console.error("WebSocket error:", error);
+        showSnackbar("Connection error", "error");
+      },
+      user.username
+    );
 
-    // Add connection listeners
-    WebSocketService.onConnect(() => {
-      console.log("WebSocket connected successfully");
-      setIsConnected(true);
-      showSnackbar("Connected to chat", "success");
-    });
-
-    WebSocketService.onDisconnect(() => {
-      console.log("WebSocket disconnected");
-      setIsConnected(false);
-      showSnackbar("Disconnected from chat", "warning");
-    });
-
-    // Set up interval to refresh online users
     const interval = setInterval(() => {
       loadOnlineUsers();
     }, 10000);
@@ -134,38 +124,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       clearInterval(interval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [user?.id]);
-
-  const showSnackbar = (
-    message: string,
-    severity: "info" | "error" | "warning" | "success" = "info"
-  ) => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  useEffect(() => {
-    if (!user) return;
-
-    const handleBeforeUnload = () => {
-      navigator.sendBeacon(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/users/logout/${user.id}`
-      );
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [user]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  }, [user.id, user.username]);
 
   const loadUsers = async () => {
     try {
@@ -190,7 +149,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         setOnlineUsers(response.data);
       }
     } catch (error) {
-      console.error("Failed to load online users:", error);
+      console.error("Error loading online users:", error);
     }
   };
 
@@ -239,89 +198,65 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
-    console.log(" New WebSocket message received:", {
-      type: message.type,
-      id: message.id,
-      content: message.content,
-      sender: message.sender,
-      receiver: message.receiver,
-    });
-
     setMessages((prev) => {
-      const existingIds = new Set(prev.map((m) => m.id));
-
-      // Handle message edits
-      if (message.type === "MESSAGE_EDIT") {
-        console.log(" Processing message edit for ID:", message.id);
-        const updated = prev.map((m) =>
-          m.id === message.id
-            ? {
-                ...m,
-                content: message.content,
-                lastEdited: new Date().toISOString(),
-              }
-            : m
-        );
-        console.log(" Message edit processed");
-        return updated;
-      }
-
-      // Handle message deletions
-      if (message.type === "MESSAGE_DELETE") {
-        console.log(" Processing message deletion for ID:", message.id);
-        const updated = prev.map((m) =>
-          m.id === message.id
-            ? {
-                ...m,
-                isDeleted: true,
-                content: "[This message was deleted]",
-              }
-            : m
-        );
-        console.log(" Message deletion processed");
-        return updated;
-      }
-
-      // Handle new messages (PUBLIC or PRIVATE)
-      if (message.type === "PUBLIC" || message.type === "PRIVATE") {
-        // Check if message already exists to prevent duplicates
-        if (message.id && existingIds.has(message.id)) {
-          console.log("⏩ Skipping duplicate message:", message.id);
-          return prev;
-        }
-
+      // Check if message already exists (for edits/deletes)
+      const existingIndex = prev.findIndex((m) => m.id === message.id);
+      if (existingIndex >= 0) {
+        // Update existing message (for edits/deletes)
+        const newMessages = [...prev];
+        const updatedMessage: Message = {
+          ...newMessages[existingIndex],
+          content: message.content || newMessages[existingIndex].content,
+          isRead: message.isRead ?? newMessages[existingIndex].isRead,
+          lastEdited: message.timestamp || new Date().toISOString(),
+        };
+        newMessages[existingIndex] = updatedMessage;
+        return newMessages;
+      } else {
+        // Add new message (convert ChatMessageDTO to Message)
         const newMessage: Message = {
           id: message.id || Date.now(),
           content: message.content,
           senderId: parseInt(message.sender),
-          senderUsername: message.senderUsername || `User${message.sender}`,
-          receiverId: message.receiver ? parseInt(message.receiver) : null,
-          receiverUsername: message.receiverUsername || null,
-          messageType: message.type as "PUBLIC" | "PRIVATE",
+          senderUsername: message.senderUsername,
+          sender:
+            findUserById(parseInt(message.sender)) ||
+            createUserFromId(parseInt(message.sender), message.senderUsername),
+          receiver: message.receiver
+            ? findUserById(parseInt(message.receiver)) ||
+              createUserFromId(
+                parseInt(message.receiver),
+                message.receiverUsername
+              )
+            : undefined,
+          messageType: (message.type as "PUBLIC" | "PRIVATE") || "PUBLIC",
           timestamp: message.timestamp || new Date().toISOString(),
-          lastEdited: message.lastEdited || null,
+          isRead: message.isRead || false,
         };
 
-        console.log("➕ Adding new message:", {
-          id: newMessage.id,
-          type: newMessage.messageType,
-          content: newMessage.content,
-          sender: newMessage.senderId,
-          receiver: newMessage.receiverId,
-        });
+    // Show notification for private messages
+    if (message.type === "PRIVATE" && message.sender !== user.id.toString()) {
+      showSnackbar(`Private message from ${message.senderUsername}`, "info");
+    }
+  };
 
-        const updated = [...prev, newMessage].sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
+  // Helper function to find user by ID
+  const findUserById = (userId: number): User | undefined => {
+    return (
+      users.find((u) => u.id === userId) ||
+      onlineUsers.find((u) => u.id === userId)
+    );
+  };
 
-        console.log(" Total messages after addition:", updated.length);
-        return updated;
-      }
-
-      console.log(" Unknown message type:", message.type);
-      return prev;
-    });
+  // Helper function to create a temporary user object
+  const createUserFromId = (userId: number, username?: string): User => {
+    return {
+      id: userId,
+      username: username || `User${userId}`,
+      createdAt: new Date().toISOString(),
+      isOnline: true,
+      isDeleted: false,
+    };
   };
 
   const handleSendMessage = (
@@ -357,71 +292,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       sender: messageToEdit.senderId,
       type: messageToEdit.messageType,
     });
-
-    // Validate the new content
-    if (!newContent || newContent.trim().length === 0) {
-      console.error(" [EDIT] Empty content provided");
-      showSnackbar("Message content cannot be empty", "error");
-      return;
-    }
-
-    if (newContent.trim() === messageToEdit.content) {
-      console.log("ℹ [EDIT] Content unchanged, skipping edit");
-      showSnackbar("No changes made", "info");
-      return;
-    }
-
-    try {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId
-            ? {
-                ...msg,
-                content: newContent,
-                lastEdited: new Date().toISOString(),
-              }
-            : msg
-        )
-      );
-
-      console.log("[EDIT] Sending edit request via WebSocket service...");
-
-      const success = await WebSocketService.editMessage(
-        messageId,
-        user.id,
-        newContent
-      );
-
-      if (success) {
-        console.log("[EDIT] Message edited successfully");
-        showSnackbar("Message edited successfully", "success");
-      } else {
-        console.error("[EDIT] WebSocket service returned failure");
-        // Revert local changes
-        setMessages((prev) =>
-          prev.map((msg) => (msg.id === messageId ? messageToEdit : msg))
-        );
-        showSnackbar("Failed to edit message", "error");
-      }
-    } catch (error: any) {
-      console.error("[EDIT] Exception during edit:", {
-        error: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-
-      // Revert local changes
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? messageToEdit : msg))
-      );
-
-      const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        "Failed to edit message";
-      showSnackbar(errorMessage, "error");
-    }
-  };
 
   const handleDeleteAccount = async () => {
     if (
@@ -504,7 +374,9 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           >
             <MenuIcon />
           </IconButton>
-          {connectionStatus} {/* Use the connection status JSX */}
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Chat App - {user.username}
+          </Typography>
           <IconButton
             color="inherit"
             onClick={handleDeleteAccount}
@@ -536,7 +408,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           users={users}
           onlineUsers={onlineUsers}
           onSelectUser={handleUserSelect}
-          currentUserId={user.id} // Pass current user ID to filter in UserList
+          currentUserId={user.id}
         />
       </Drawer>
 

@@ -6,6 +6,8 @@ import {
 } from '../types';
 import { messageAPI } from './api';
 
+/* -------------------------------------------------------- */
+
 type StompFrame = {
   command: string;
   headers: StompHeaders;
@@ -26,15 +28,17 @@ class WebSocketService {
   private errorCallbacks: ((error: WebSocketError) => void)[] = [];
   private connectCallbacks: (() => void)[] = [];
   private disconnectCallbacks: (() => void)[] = [];
-  private userCallbacks: ((event: any) => void)[] = []; 
+  private currentUsername: string = '';
 
   connect(
     userId: number, 
     onMessageReceived: (message: ChatMessageDTO) => void,
-    onError: (error: WebSocketError) => void
+    onError: (error: WebSocketError) => void,
+    username: string // Add username parameter
   ): void {
     this.messageCallbacks.push(onMessageReceived);
     this.errorCallbacks.push(onError);
+    this.currentUsername = username; // Store the current username
 
     this.client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
@@ -156,6 +160,7 @@ class WebSocketService {
       const message: ChatMessageDTO = {
         content: content,
         sender: senderId.toString(),
+        senderUsername: this.currentUsername, // Add senderUsername
         type: 'PUBLIC'
       };
       
@@ -173,6 +178,7 @@ class WebSocketService {
       const message: ChatMessageDTO = {
         content: content,
         sender: senderId.toString(),
+        senderUsername: this.currentUsername, // Add senderUsername
         receiver: receiverId.toString(),
         type: 'PRIVATE'
       };
@@ -186,53 +192,26 @@ class WebSocketService {
     }
   }
 
-  async editMessage(messageId: number, userId: number, newContent: string): Promise<boolean> {
-    console.log('[WS-EDIT] Starting edit process:', { messageId, userId, newContent });
-    
-    if (!newContent || newContent.trim().length === 0) {
-      console.error('[WS-EDIT] Empty content provided');
-      return false;
-    }
-
-    if (!messageId || !userId) {
-      console.error('[WS-EDIT] Missing messageId or userId');
-      return false;
-    }
-
-    try {
-      console.log('[WS-EDIT] Attempting REST API edit...');
+  editMessage(messageId: number, userId: number, newContent: string): void {
+    if (this.isConnected && this.client) {
+      const editPayload = {
+        messageId: messageId,
+        userId: userId,
+        content: newContent,
+        senderUsername: this.currentUsername // Add senderUsername to edit payload if needed
+      };
       
-      const response = await messageAPI.editMessage(messageId, newContent, userId);
-      
-      console.log('[WS-EDIT] REST API edit successful:', {
-        status: response.status,
-        data: response.data
+      this.client.publish({
+        destination: '/app/chat.edit',
+        body: JSON.stringify(editPayload)
       });
-      
-      // Broadcast via WebSocket for real-time updates
-      if (this.isConnected && this.client) {
-        console.log('[WS-EDIT] Broadcasting edit via WebSocket...');
-        
-        const editPayload = { 
-          messageId, 
-          userId, 
-          content: newContent 
-        };
-        
-        this.client.publish({
-          destination: '/app/chat.edit',
-          body: JSON.stringify(editPayload)
-        });
-        
-        console.log('[WS-EDIT] WebSocket broadcast sent');
-      }
-      
-      return true;
-      
-    } catch (error: any) {
-      console.error('[WS-EDIT] Edit failed:', error);
-      return false;
+    } else {
+      console.warn('WebSocket not connected');
     }
+
+  // Update username if needed (for cases where username might change)
+  setUsername(username: string): void {
+    this.currentUsername = username;
   }
 
   // Event subscription methods
@@ -257,7 +236,7 @@ class WebSocketService {
     this.errorCallbacks = [];
     this.connectCallbacks = [];
     this.disconnectCallbacks = [];
-    this.userCallbacks = []; // Clear user callbacks too
+    this.currentUsername = '';
     
     this.subscriptions.forEach((subscription) => {
       subscription.unsubscribe();
