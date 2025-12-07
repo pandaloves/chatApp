@@ -45,6 +45,7 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const showSnackbar = (
     message: string,
@@ -58,8 +59,38 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    WebSocketService.onUserEvent((event) => {
+      console.log("User event:", event);
+
+      switch (event.type) {
+        case "USER_UPDATE":
+          setUsers((prev) => [
+            ...prev.filter((u) => u.id !== event.payload.id),
+            event.payload,
+          ]);
+          break;
+
+        case "USER_ONLINE":
+          setOnlineUsers((prev) => [
+            ...prev.filter((u) => u.id !== event.payload.id),
+            event.payload,
+          ]);
+          break;
+
+        case "USER_OFFLINE":
+          setOnlineUsers((prev) =>
+            prev.filter((u) => u.id !== event.payload.id)
+          );
+          break;
+
+        case "USER_DELETE":
+          const userId = event.payload;
+          setUsers((prev) => prev.filter((u) => u.id !== userId));
+          setOnlineUsers((prev) => prev.filter((u) => u.id !== userId));
+          break;
+      }
+    });
+  }, []);
 
   useEffect(() => {
     loadUsers();
@@ -79,9 +110,19 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
       loadOnlineUsers();
     }, 10000);
 
+    // Handle beforeunload for logout
+    const handleBeforeUnload = () => {
+      navigator.sendBeacon(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/users/logout/${user.id}`
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       WebSocketService.disconnect();
       clearInterval(interval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [user.id, user.username]);
 
@@ -97,10 +138,36 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const loadOnlineUsers = async () => {
     try {
       const response = await userAPI.getOnlineUsers();
-      setOnlineUsers(response.data);
+      const currentUserId = user?.id; // Fixed: use 'user' prop
+
+      if (currentUserId) {
+        const filteredOnlineUsers = response.data.filter(
+          (onlineUser) => onlineUser.id !== currentUserId
+        );
+        setOnlineUsers(filteredOnlineUsers);
+      } else {
+        setOnlineUsers(response.data);
+      }
     } catch (error) {
       console.error("Error loading online users:", error);
     }
+  };
+
+  const removeDuplicates = (messages: Message[]): Message[] => {
+    const seen = new Set<string>();
+    return messages
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      )
+      .filter((msg) => {
+        const key = `${msg.senderId}-${msg.receiverId || "public"}-${
+          msg.content
+        }-${new Date(msg.timestamp).getTime()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
   };
 
   const loadMessageHistory = async () => {
@@ -114,10 +181,20 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
         (a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
-      setMessages(allMessages);
+
+      const uniqueMessages = removeDuplicates(allMessages);
+      setMessages(uniqueMessages);
     } catch (error) {
       console.error("Error loading messages:", error);
     }
+  };
+
+  // Helper function to get username by ID
+  const getUsernameById = (userId: number): string => {
+    const foundUser =
+      users.find((u) => u.id === userId) ||
+      onlineUsers.find((u) => u.id === userId);
+    return foundUser?.username || `User${userId}`;
   };
 
   const handleNewMessage = (message: ChatMessageDTO) => {
@@ -156,9 +233,6 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
           timestamp: message.timestamp || new Date().toISOString(),
           isRead: message.isRead || false,
         };
-        return [...prev, newMessage];
-      }
-    });
 
     // Show notification for private messages
     if (message.type === "PRIVATE" && message.sender !== user.id.toString()) {
@@ -196,9 +270,28 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
     }
   };
 
-  const handleEditMessage = (messageId: number, newContent: string) => {
-    WebSocketService.editMessage(messageId, user.id, newContent);
-  };
+  const handleEditMessage = async (messageId: number, newContent: string) => {
+    console.log(" [EDIT] Attempting to edit message:", {
+      messageId,
+      newContent,
+      userId: user.id,
+      currentTime: new Date().toISOString(),
+    });
+
+    // Find the message to edit
+    const messageToEdit = messages.find((m) => m.id === messageId);
+    if (!messageToEdit) {
+      console.error(" [EDIT] Message not found for editing:", messageId);
+      showSnackbar("Message not found", "error");
+      return;
+    }
+
+    console.log(" [EDIT] Found message to edit:", {
+      id: messageToEdit.id,
+      currentContent: messageToEdit.content,
+      sender: messageToEdit.senderId,
+      type: messageToEdit.messageType,
+    });
 
   const handleDeleteAccount = async () => {
     if (
@@ -231,9 +324,41 @@ export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
 
   const handlePrivateMessageSend = (content: string) => {
     if (selectedUser) {
+      const tempMessage: Message = {
+        id: Number(`${Date.now()}${user.id}${selectedUser.id}`),
+        content: content,
+        senderId: user.id,
+        senderUsername: user.username,
+        receiverId: selectedUser.id,
+        receiverUsername: selectedUser.username,
+        messageType: "PRIVATE",
+        timestamp: new Date().toISOString(),
+        lastEdited: null,
+      };
+
+      // Add to messages immediately
+      setMessages((prev) => {
+        // Prevent duplicates
+        if (
+          prev.find(
+            (m) =>
+              m.id === tempMessage.id ||
+              (m.content === tempMessage.content &&
+                m.senderId === tempMessage.senderId &&
+                m.receiverId === tempMessage.receiverId)
+          )
+        )
+          return prev;
+        return [...prev, tempMessage];
+      });
+
+      // Send via WebSocket
       handleSendMessage(content, selectedUser.id);
       setPrivateMessageOpen(false);
       setSelectedUser(null);
+
+      // Scroll to show the new message
+      setTimeout(scrollToBottom, 100);
     }
   };
 

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import {
   Box,
+  Paper,
+  Typography,
   TextField,
   Button,
-  Typography,
-  Paper,
   Tabs,
   Tab,
   Alert,
@@ -102,7 +102,7 @@ export default function LoginForm({
 
           <TextField
             fullWidth
-            label="Password"
+            label="Confirm Password"
             type="password"
             variant="outlined"
             margin="normal"
@@ -111,6 +111,7 @@ export default function LoginForm({
               setFormData({ ...formData, password: e.target.value })
             }
             required
+            id={confirmPasswordId}
             disabled={loading}
           />
 
