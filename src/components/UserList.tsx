@@ -20,13 +20,12 @@ type UserListProps = {
   currentUserId?: number;
 };
 
-const UserList: React.FC<UserListProps> = ({
+export default function UserList({
   users,
   onlineUsers,
   onSelectUser,
   currentUserId,
-}) => {
-  // Filter out current user AND only show online users
+}: UserListProps) {
   const otherOnlineUsers = onlineUsers.filter(
     (user) => user.id !== currentUserId && !user.isDeleted
   );
@@ -100,6 +99,4 @@ const UserList: React.FC<UserListProps> = ({
       )}
     </List>
   );
-};
-
-export default UserList;
+}

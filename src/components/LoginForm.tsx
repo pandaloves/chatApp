@@ -13,12 +13,15 @@ import {
 
 /* ------------------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------------------ */
-
 type LoginFormProps = {
   onLogin: (username: string, password: string) => Promise<void>;
   onRegister: (username: string, password: string) => Promise<void>;
   loading?: boolean;
+};
+
+type FormData = {
+  username: string;
+  password: string;
 };
 
 export default function LoginForm({
@@ -26,22 +29,6 @@ export default function LoginForm({
   onRegister,
   loading = false,
 }: LoginFormProps) {
-  const [activeTab, setActiveTab] = useState(0);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isClient, setIsClient] = useState(false);
-
-  // Generate stable IDs
-  const usernameId = useId();
-  const passwordId = useId();
-  const confirmPasswordId = useId();
-
-const LoginForm: React.FC<LoginFormProps> = ({
-  onLogin,
-  onRegister,
-  loading = false,
-}) => {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [formData, setFormData] = useState<FormData>({
     username: "",
@@ -148,6 +135,4 @@ const LoginForm: React.FC<LoginFormProps> = ({
       </Paper>
     </Box>
   );
-};
-
-export default LoginForm;
+}

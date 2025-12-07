@@ -21,11 +21,11 @@ import { Message, User, MessageListProps } from "../types";
 
 /* ------------------------------------------------------------------------------ */
 
-const MessageList: React.FC<MessageListProps> = ({
+export default function MessageList({
   messages,
   currentUser,
   onEditMessage,
-}) => {
+}: MessageListProps) {
   const [menuAnchor, setMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [editingMessage, setEditingMessage] = React.useState<Message | null>(
     null
@@ -285,6 +285,4 @@ const MessageList: React.FC<MessageListProps> = ({
       </Dialog>
     </>
   );
-};
-
-export default MessageList;
+}

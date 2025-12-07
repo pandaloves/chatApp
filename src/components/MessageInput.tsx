@@ -9,10 +9,10 @@ type MessageInputProps = {
   onPrivateMessageClick?: () => void;
 };
 
-const MessageInput: React.FC<MessageInputProps> = ({
+export default function MessageInput({
   onSendMessage,
   onPrivateMessageClick,
-}) => {
+}: MessageInputProps) {
   const [message, setMessage] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -78,6 +78,4 @@ const MessageInput: React.FC<MessageInputProps> = ({
       </Box>
     </Box>
   );
-};
-
-export default MessageInput;
+}

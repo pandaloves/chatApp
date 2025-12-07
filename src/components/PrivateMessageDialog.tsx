@@ -20,12 +20,12 @@ type PrivateMessageDialogProps = {
   onSendMessage: (content: string) => void;
 };
 
-const PrivateMessageDialog: React.FC<PrivateMessageDialogProps> = ({
+export default function PrivateMessageDialog({
   open,
   user,
   onClose,
   onSendMessage,
-}) => {
+}: PrivateMessageDialogProps) {
   const [message, setMessage] = useState<string>("");
 
   const handleSend = () => {
@@ -91,6 +91,4 @@ const PrivateMessageDialog: React.FC<PrivateMessageDialogProps> = ({
       </DialogActions>
     </Dialog>
   );
-};
-
-export default PrivateMessageDialog;
+}
