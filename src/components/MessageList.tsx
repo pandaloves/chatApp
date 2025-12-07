@@ -2,10 +2,9 @@ import React from "react";
 import {
   List,
   ListItem,
-  ListItemText,
+  Paper,
   Typography,
   Box,
-  Chip,
   IconButton,
   Menu,
   MenuItem,
@@ -56,18 +55,17 @@ const MessageList: React.FC<MessageListProps> = ({
   ) => {
     setMenuAnchor(event.currentTarget);
     setSelectedMessage(message);
+    setEditingMessageId(message.id);
+    setEditContent(message.content);
+    setAnchorEl(null);
   };
 
-  const handleMenuClose = () => {
-    setMenuAnchor(null);
-    setSelectedMessage(null);
-  };
-
-  const handleEditClick = () => {
-    if (selectedMessage) {
-      setEditingMessage(selectedMessage);
-      setEditContent(selectedMessage.content);
-      handleMenuClose();
+  const handleEditSubmit = () => {
+    if (editingMessageId && editContent.trim()) {
+      onEditMessage(editingMessageId, editContent.trim());
+      setEditingMessageId(null);
+      setEditContent("");
+      setSelectedMessage(null);
     }
   };
 
@@ -77,7 +75,6 @@ const MessageList: React.FC<MessageListProps> = ({
       setEditingMessage(null);
       setEditContent("");
     }
-  };
 
   // Safe sender username - always use the stored username
   const getSafeSenderUsername = (message: Message): string => {
@@ -243,17 +240,18 @@ const MessageList: React.FC<MessageListProps> = ({
             <Typography variant="body2" color="text.secondary">
               Start a conversation by sending a message!
             </Typography>
-          </Box>
-        )}
-      </List>
+          )}
+        </ListItem>
+      ))}
 
-      {/* Context Menu */}
       <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={handleMenuClose}
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
       >
-        <MenuItem onClick={handleEditClick}>
+        <MenuItem
+          onClick={() => selectedMessage && handleEditClick(selectedMessage)}
+        >
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
           Edit
         </MenuItem>

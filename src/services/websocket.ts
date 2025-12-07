@@ -4,6 +4,7 @@ import {
   ChatMessageDTO,
   WebSocketError,
 } from '../types';
+import { messageAPI } from './api';
 
 /* -------------------------------------------------------- */
 
@@ -50,7 +51,7 @@ class WebSocketService {
         this.isConnected = true;
         console.log('WebSocket connected:', frame);
         
-        this.setupSubscriptions();
+        this.setupSubscriptions(userId);
         this.connectCallbacks.forEach(callback => callback());
       },
       
@@ -87,14 +88,18 @@ class WebSocketService {
   private setupSubscriptions(): void {
     if (!this.client) return;
 
-    // Subscribe to public messages
+    console.log('🔌 Setting up WebSocket subscriptions for user:', userId);
+
+    // Subscribe to public messages (public messages and public deletions)
     const publicSub = this.client.subscribe('/topic/public', (message: IMessage) => {
+      console.log('📨 Received message from /topic/public:', message.body);
       this.handleIncomingMessage(message);
     });
     this.subscriptions.set('public', publicSub);
-    
-    // Subscribe to private messages
-    const privateSub = this.client.subscribe('/user/queue/private', (message: IMessage) => {
+
+    // Subscribe to user-specific messages for private messages and private deletions
+    const userSub = this.client.subscribe(`/user/queue/messages`, (message: IMessage) => {
+      console.log('📨 Received message from /user/queue/messages:', message.body);
       this.handleIncomingMessage(message);
     });
     this.subscriptions.set('private', privateSub);
@@ -114,24 +119,39 @@ class WebSocketService {
     this.subscriptions.set("user-events", userEventSub);
     
     // Subscribe to errors
-    const errorSub = this.client.subscribe('/user/queue/errors', (message: IMessage) => {
+    const errorSub = this.client.subscribe(`/user/${userId}/queue/errors`, (message: IMessage) => {
       try {
-        const error: WebSocketError = JSON.parse(message.body);
-        console.error('WebSocket application error:', error);
-        this.errorCallbacks.forEach(callback => callback(error));
-      } catch (parseError) {
-        console.error('Error parsing WebSocket error message:', parseError);
+        console.log('❌ Received error from WebSocket:', message.body);
+        const error = JSON.parse(message.body);
+        this.errorCallbacks.forEach((cb) => cb(error));
+      } catch (err) {
+        console.error('Failed to parse WS error:', err);
       }
     });
     this.subscriptions.set('errors', errorSub);
+
+    console.log('✅ WebSocket subscriptions set up for user:', userId);
+    console.log('   - /topic/public (public messages & deletions)');
+    console.log('   - /user/queue/messages (private messages & deletions)');
+    console.log('   - /topic/users (user events)');
+    console.log('   - /user/' + userId + '/queue/errors (errors)');
   }
 
-  private handleIncomingMessage(message: IMessage): void {
+  // Add the missing handleIncomingMessage method
+  private handleIncomingMessage(message: IMessage) {
+    if (!message.body) return;
+
     try {
-      const chatMessage: ChatMessageDTO = JSON.parse(message.body);
-      this.messageCallbacks.forEach(callback => callback(chatMessage));
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
+      const parsed: ChatMessageDTO = JSON.parse(message.body);
+      console.log('WebSocket message received:', {
+        type: parsed.type,
+        id: parsed.id,
+        content: parsed.content
+      });
+      
+      this.messageCallbacks.forEach(cb => cb(parsed));
+    } catch (err) {
+      console.error('Failed to parse incoming WS message:', err, message.body);
     }
   }
 
@@ -188,7 +208,6 @@ class WebSocketService {
     } else {
       console.warn('WebSocket not connected');
     }
-  }
 
   setUsername(username: string): void {
     this.currentUsername = username;
@@ -209,11 +228,6 @@ class WebSocketService {
 
   onDisconnect(callback: () => void): void {
     this.disconnectCallbacks.push(callback);
-  }
-
-  // Utility methods
-  getConnectionStatus(): boolean {
-    return this.isConnected;
   }
 
   disconnect(): void {
