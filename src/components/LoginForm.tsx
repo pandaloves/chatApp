@@ -13,22 +13,22 @@ import {
 
 /* ------------------------------------------------------------------------------ */
 
-interface LoginFormProps {
+type LoginFormProps = {
   onLogin: (username: string, password: string) => Promise<void>;
   onRegister: (username: string, password: string) => Promise<void>;
   loading?: boolean;
-}
+};
 
-interface FormData {
+type FormData = {
   username: string;
   password: string;
-}
+};
 
-const LoginForm: React.FC<LoginFormProps> = ({
+export default function LoginForm({
   onLogin,
   onRegister,
   loading = false,
-}) => {
+}: LoginFormProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [formData, setFormData] = useState<FormData>({
     username: "",
@@ -134,6 +134,4 @@ const LoginForm: React.FC<LoginFormProps> = ({
       </Paper>
     </Box>
   );
-};
-
-export default LoginForm;
+}
