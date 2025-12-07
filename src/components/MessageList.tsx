@@ -17,14 +17,10 @@ import {
   Button,
   useTheme,
 } from "@mui/material";
-import {
-  MoreVert as MoreIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-} from "@mui/icons-material";
+import { MoreVert as MoreIcon, Edit as EditIcon } from "@mui/icons-material";
 import { Message, User, MessageListProps } from "../types";
 
-/* -------------------------------------------------------- */
+/* ------------------------------------------------------------------------------ */
 
 const MessageList: React.FC<MessageListProps> = ({
   messages,

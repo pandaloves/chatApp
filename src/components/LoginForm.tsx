@@ -11,7 +11,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 
-/* -------------------------------------------------------- */
+/* ------------------------------------------------------------------------------ */
 
 interface LoginFormProps {
   onLogin: (username: string, password: string) => Promise<void>;

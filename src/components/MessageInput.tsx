@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Box, TextField, IconButton, Fab, Tooltip } from "@mui/material";
 import { Send as SendIcon, Person as PersonIcon } from "@mui/icons-material";
 
-/* -------------------------------------------------------- */
+/* ------------------------------------------------------------------------------ */
 
 type MessageInputProps = {
   onSendMessage: (content: string, receiver?: number | null) => void;

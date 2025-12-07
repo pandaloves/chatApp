@@ -28,7 +28,7 @@ import WebSocketService from "../services/websocket";
 import { userAPI, messageAPI } from "../services/api";
 import { User, Message, ChatMessageDTO, ChatRoomProps } from "../types";
 
-/* -------------------------------------------------------- */
+/* ------------------------------------------------------------------------------ */
 
 export default function ChatRoom({ user, onLogout }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([]);
